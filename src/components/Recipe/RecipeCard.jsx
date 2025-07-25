@@ -12,7 +12,14 @@ const RecipeCard = ({ title, imageUrl, calories, ingredients, recipeInstructions
 
   return (
     <div className="recipe-card" onClick={onClick} style={{ cursor: onClick ? "pointer" : undefined, position: "relative" }}>
-      <img src={imageUrl} alt={title} className="recipe-image" />
+      <img 
+        src={imageUrl} 
+        alt={title} 
+        className="recipe-image"
+        onError={(e) => {
+          e.target.src = "https://via.placeholder.com/400x200/FF6B6B/FFFFFF?text=Tarif+Resmi";
+        }}
+      />
       {/* Favori butonu */}
       {user && (
         <button

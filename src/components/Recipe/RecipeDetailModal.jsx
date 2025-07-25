@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from "react";
 import RecipeReviewForm from "./RecipeReviewForm";
-import StarRating from "./StarRating";
-import { reviewService } from "../services/reviewService";
+import StarRating from "../StarRating";
+import { reviewService } from "../../services/reviewService";
+import PaginatedRecipeReviewList from "../Review/PaginatedRecipeReviewList";
+
 
 export default function RecipeDetailModal({ recipe, user, onClose }) {
   const [reviews, setReviews] = useState([]);
@@ -94,10 +96,14 @@ export default function RecipeDetailModal({ recipe, user, onClose }) {
             alt={recipe.recipeName}
             style={{
               width: "100%",
-              height: 200,
+              height: 300,
               objectFit: "cover",
               borderRadius: 12,
-              marginBottom: 16,
+              marginBottom: 20,
+              boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+            }}
+            onError={(e) => {
+              e.target.src = "https://via.placeholder.com/600x300/FF6B6B/FFFFFF?text=Tarif+Resmi";
             }}
           />
         )}
@@ -139,36 +145,7 @@ export default function RecipeDetailModal({ recipe, user, onClose }) {
             </div>
           )}
 
-          {loading ? (
-            <p>Yorumlar yükleniyor...</p>
-          ) : error ? (
-            <p style={{ color: "var(--error-color)" }}>{error}</p>
-          ) : reviews.length === 0 ? (
-            <p>Henüz yorum yapılmamış.</p>
-          ) : (
-            <div style={{ maxHeight: 300, overflowY: "auto" }}>
-              {reviews.map((review) => (
-                <div
-                  key={review.reviewId}
-                  style={{
-                    borderBottom: "1px solid var(--border-color)",
-                    paddingBottom: 12,
-                    marginBottom: 12,
-                  }}
-                >
-                  <div style={{ display: "flex", alignItems: "center", marginBottom: 4 }}>
-                    <span style={{ fontWeight: "bold", marginRight: 8 }}>
-                      {review.user?.username || "Anonim"}
-                    </span>
-                    <StarRating rating={review.rating} readonly />
-                  </div>
-                  <p style={{ color: "var(--text-secondary)", margin: 0 }}>
-                    {review.reviewText}
-                  </p>
-                </div>
-              ))}
-            </div>
-          )}
+          <PaginatedRecipeReviewList recipeId={recipe.recipeId} />
         </div>
 
         {user && (

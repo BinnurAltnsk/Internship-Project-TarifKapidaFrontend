@@ -15,4 +15,11 @@ export const reviewService = {
   
   // Yorum sil
   deleteReview: (reviewId) => api.post(`/api/Review/DeleteReview/${reviewId}`),
+  
+  getPagedReviewsByRecipe: async (recipeId, page, pageSize = 10) => {
+    const res = await api.get('/api/Review/PagedReviewsByRecipe', {
+      params: { recipeId, page, pageSize },
+    });
+    return res.data; // Bu satır: JSON objesini döner (içinde data, totalPages vs. var)
+  }
 }; 

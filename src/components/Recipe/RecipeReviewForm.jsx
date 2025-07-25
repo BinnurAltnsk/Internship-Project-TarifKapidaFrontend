@@ -1,6 +1,6 @@
 import React, { useState } from "react";
-import StarRating from "./StarRating";
-import { reviewService } from "../services/reviewService";
+import StarRating from "../StarRating";
+import { reviewService } from "../../services/reviewService";
 
 export default function RecipeReviewForm({
   recipeId,

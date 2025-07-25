@@ -1,13 +1,14 @@
 import React, { useEffect, useState } from "react";
 import Navbar from "./components/Navbar";
-import RecipeCard from "./components/RecipeCard";
+import RecipeCard from "./components/Recipe/RecipeCard";
 import "./App.css";
 import { BrowserRouter as Router, Routes, Route, useNavigate } from "react-router-dom";
 import ProfilePage from "./ProfilePage";
-import RecipeDetailModal from "./components/RecipeDetailModal";
+import RecipeDetailModal from "./components/Recipe/RecipeDetailModal";
 import { recipeService } from "./services/recipeService";
 import { userService } from "./services/userService";
 import { favoriteService } from "./services/favoriteService";
+import { getImageUrl } from "./services/api";
 
 function App() {
   const [recipes, setRecipes] = useState([]);
@@ -50,10 +51,15 @@ function App() {
       setLoading(true);
       console.log("Tarifler yükleniyor...");
       const response = await recipeService.getRecipes();
-      console.log("API Response:", response);
       const recipesData = response.data;
-      console.log("Recipes Data:", recipesData);
-      setRecipes(recipesData);
+      
+      // Resim URL'lerini düzgün şekilde oluştur
+      const processedRecipes = recipesData.map(recipe => ({
+        ...recipe,
+        recipeImageUrl: getImageUrl(recipe.recipeImageUrl)
+      }));
+      
+      setRecipes(processedRecipes);
       
       // Kategorileri çıkar
       const uniqueCategories = [...new Set(
@@ -66,6 +72,58 @@ function App() {
     } catch (error) {
       console.error("Tarifler yüklenemedi:", error);
       console.error("Error details:", error.response?.data);
+      
+      // API hatası durumunda demo tarifler göster
+      console.log("API hatası nedeniyle demo tarifler yükleniyor...");
+      const demoRecipes = [
+        {
+          recipeId: 1,
+          recipeName: "Mercimek Çorbası",
+          recipeImageUrl: "https://via.placeholder.com/400x200/FF6B6B/FFFFFF?text=Mercimek+Çorbası",
+          recipeIngredients: "Kırmızı mercimek, soğan, havuç, tereyağı, tuz, karabiber",
+          recipeInstructions: "1. Mercimekleri yıkayın\n2. Sebzeleri doğrayın\n3. Tencereye alın ve pişirin",
+          category: "Çorba"
+        },
+        {
+          recipeId: 2,
+          recipeName: "Tavuk Sote",
+          recipeImageUrl: "https://via.placeholder.com/400x200/4ECDC4/FFFFFF?text=Tavuk+Sote",
+          recipeIngredients: "Tavuk göğsü, soğan, biber, domates, zeytinyağı, baharatlar",
+          recipeInstructions: "1. Tavukları kuşbaşı doğrayın\n2. Sebzeleri hazırlayın\n3. Sote yapın",
+          category: "Ana Yemek"
+        },
+        {
+          recipeId: 3,
+          recipeName: "Pizza Margherita",
+          recipeImageUrl: "https://via.placeholder.com/400x200/45B7D1/FFFFFF?text=Pizza+Margherita",
+          recipeIngredients: "Pizza hamuru, domates sosu, mozzarella peyniri, fesleğen, zeytinyağı",
+          recipeInstructions: "1. Hamuru açın\n2. Sosu sürün\n3. Peynir ve fesleğen ekleyin\n4. Fırında pişirin",
+          category: "Pizza"
+        },
+        {
+          recipeId: 4,
+          recipeName: "Çikolatalı Kek",
+          recipeImageUrl: "https://via.placeholder.com/400x200/96CEB4/FFFFFF?text=Çikolatalı+Kek",
+          recipeIngredients: "Un, şeker, kakao, yumurta, süt, tereyağı, vanilya",
+          recipeInstructions: "1. Malzemeleri karıştırın\n2. Kek kalıbına dökün\n3. Fırında pişirin",
+          category: "Tatlı"
+        },
+        {
+          recipeId: 5,
+          recipeName: "Salata",
+          recipeImageUrl: "https://via.placeholder.com/400x200/FFEAA7/FFFFFF?text=Salata",
+          recipeIngredients: "Marul, domates, salatalık, zeytin, peynir, zeytinyağı, limon",
+          recipeInstructions: "1. Sebzeleri yıkayın\n2. Doğrayın\n3. Karıştırın ve sos ekleyin",
+          category: "Salata"
+        }
+      ];
+      
+      setRecipes(demoRecipes);
+      
+      // Demo kategorileri ekle
+      const demoCategories = ["Tümü", "Çorba", "Ana Yemek", "Pizza", "Tatlı", "Salata"];
+      setCategories(demoCategories);
+      
     } finally {
       setLoading(false);
     }

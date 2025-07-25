@@ -37,4 +37,22 @@ api.interceptors.response.use(
   }
 );
 
+// Resim URL'sini düzgün şekilde oluştur
+export const getImageUrl = (imagePath) => {
+  if (!imagePath) return null;
+  
+  // Eğer zaten tam URL ise, olduğu gibi döndür
+  if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+    return imagePath;
+  }
+  
+  // Eğer ./ ile başlıyorsa, API base URL ile birleştir
+  if (imagePath.startsWith('./')) {
+    return `${API_BASE_URL}/${imagePath.substring(2)}`;
+  }
+  
+  // Eğer sadece dosya adı ise, wwwroot altında olduğunu varsay
+  return `${API_BASE_URL}/${imagePath}`;
+};
+
 export default api; 

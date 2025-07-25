@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from "react";
 import "./ProfilePage.css";
 import { reviewService } from "./services/reviewService";
-import RecipeCard from "./components/RecipeCard";
-import RecipeDetailModal from "./components/RecipeDetailModal";
+import RecipeCard from "./components/Recipe/RecipeCard";
+import RecipeDetailModal from "./components/Recipe/RecipeDetailModal";
 
 const tabs = [
   { key: "profile", label: "Profil" },
