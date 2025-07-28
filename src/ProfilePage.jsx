@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from "react";
 import "./ProfilePage.css";
 import { reviewService } from "./services/reviewService";
+import { userService } from "./services/userService";
+import { getProfilePhotoUrl } from "./services/api";
 import RecipeCard from "./components/Recipe/RecipeCard";
 import RecipeDetailModal from "./components/Recipe/RecipeDetailModal";
+import ProfileEditModal from "./components/ProfileEditModal";
 
 const tabs = [
   { key: "profile", label: "Profil" },
@@ -16,14 +19,67 @@ export default function ProfilePage({ user, favorites, recipes, onFavoriteClick 
   const [loadingComments, setLoadingComments] = useState(true);
   const [selectedRecipe, setSelectedRecipe] = useState(null);
   const [showRecipeModal, setShowRecipeModal] = useState(false);
+  const [showProfileEditModal, setShowProfileEditModal] = useState(false);
+  const [profilePhoto, setProfilePhoto] = useState(null);
+  const [userProfile, setUserProfile] = useState(null);
+  const [loadingProfile, setLoadingProfile] = useState(true);
 
   const favoriteRecipes = recipes.filter((r) => favorites.includes(r.recipeId));
 
   useEffect(() => {
     if (user?.userId) {
       loadUserComments();
+      loadUserProfile();
     }
   }, [user]);
+
+  const loadUserProfile = async () => {
+    try {
+      setLoadingProfile(true);
+      const response = await userService.getUserProfile(user.userId);
+      if (response.data) {
+        setUserProfile(response.data);
+        // Profil fotoğrafını da ayarla (backend'de ProfileImageUrl olarak geliyor)
+        if (response.data.profileImageUrl) {
+          const photoUrl = getProfilePhotoUrl(response.data.profileImageUrl);
+          setProfilePhoto(photoUrl);
+        }
+      }
+    } catch (error) {
+      console.error("Kullanıcı profili yüklenemedi:", error);
+      // Eğer profil bulunamazsa, yeni profil oluşturmayı dene
+      try {
+        await createUserProfile();
+      } catch (createError) {
+        console.error("Yeni profil oluşturulamadı:", createError);
+      }
+    } finally {
+      setLoadingProfile(false);
+    }
+  };
+
+  const createUserProfile = async () => {
+    try {
+      const newProfile = {
+        userId: user.userId,
+        username: user.username,
+        email: user.email,
+        profileImageUrl: null,
+        bio: null,
+        location: null,
+        website: null,
+        dateOfBirth: null,
+        phoneNumber: null
+      };
+      
+      const response = await userService.createUserProfile(newProfile);
+      if (response.data) {
+        setUserProfile(response.data);
+      }
+    } catch (error) {
+      console.error("Profil oluşturma hatası:", error);
+    }
+  };
 
   const loadUserComments = async () => {
     try {
@@ -49,23 +105,50 @@ export default function ProfilePage({ user, favorites, recipes, onFavoriteClick 
     setSelectedRecipe(null);
   };
 
+  const handleProfilePhotoUpdate = async (photoUrl) => {
+    const fullPhotoUrl = getProfilePhotoUrl(photoUrl);
+    setProfilePhoto(fullPhotoUrl);
+    
+    // UserProfile'ı da güncelle
+    if (userProfile) {
+      try {
+        const updatedProfile = {
+          ...userProfile,
+          profileImageUrl: photoUrl
+        };
+        await userService.updateUserProfile(updatedProfile);
+        setUserProfile(updatedProfile);
+      } catch (error) {
+        console.error("Profil güncellenirken hata:", error);
+      }
+    }
+  };
+
   return (
     <div className="profile-root">
       <div className="profile-cover">
-        <button className="profile-photo-btn" onClick={() => alert("Fotoğraf ekleme yakında!")}>📷 Fotoğraf Ekle</button>
+        <button className="profile-photo-btn" onClick={() => setShowProfileEditModal(true)}>📷 Profili Düzenle</button>
       </div>
 
       <div className="profile-main">
         <div className="profile-avatar">
-          <span role="img" aria-label="avatar" style={{ fontSize: 64 }}>
-            👤
-          </span>
+          {profilePhoto ? (
+            <img 
+              src={profilePhoto} 
+              alt="Profil fotoğrafı" 
+              className="profile-photo"
+            />
+          ) : (
+            <span role="img" aria-label="avatar" style={{ fontSize: 64 }}>
+              👤
+            </span>
+          )}
         </div>
         <div className="profile-info">
           <div className="profile-name">{user?.username || "Kullanıcı"}</div>
           <div className="profile-username">@{user?.username || "kullanici"}</div>
         </div>
-        <button className="profile-edit-btn" onClick={() => alert("Profil düzenleme yakında!")}>Profili Düzenle</button>
+        <button className="profile-edit-btn" onClick={() => setShowProfileEditModal(true)}>Profili Düzenle</button>
       </div>
 
       <div className="profile-tabs">
@@ -83,12 +166,53 @@ export default function ProfilePage({ user, favorites, recipes, onFavoriteClick 
       <div className="profile-tab-content">
         {activeTab === "profile" && (
           <div>
-            <h3>Hoş geldin, {user?.username || "Kullanıcı"}!</h3>
-            <p>Burada profil bilgilerini ve ayarlarını görebilirsin.</p>
-            <div style={{ marginTop: 20 }}>
-              <p><strong>E-posta:</strong> {user?.email || "Belirtilmemiş"}</p>
-              <p><strong>Kullanıcı ID:</strong> {user?.userId || "Belirtilmemiş"}</p>
-            </div>
+            {loadingProfile ? (
+              <div style={{ textAlign: 'center', padding: '20px' }}>
+                <p>Profil bilgileri yükleniyor...</p>
+              </div>
+            ) : (
+              <>
+                <h3>Hoş geldin, {userProfile?.username || user?.username || "Kullanıcı"}!</h3>
+                <p>Burada profil bilgilerini ve ayarlarını görebilirsin.</p>
+                
+                <div className="profile-details" style={{ marginTop: 20 }}>
+                  <div className="profile-detail-item">
+                    <strong>Kullanıcı Adı:</strong> {userProfile?.username || user?.username || "Belirtilmemiş"}
+                  </div>
+                  <div className="profile-detail-item">
+                    <strong>E-posta:</strong> {userProfile?.email || user?.email || "Belirtilmemiş"}
+                  </div>
+                  {userProfile?.bio && (
+                    <div className="profile-detail-item">
+                      <strong>Hakkımda:</strong> {userProfile.bio}
+                    </div>
+                  )}
+                  {userProfile?.location && (
+                    <div className="profile-detail-item">
+                      <strong>Konum:</strong> {userProfile.location}
+                    </div>
+                  )}
+                  {userProfile?.website && (
+                    <div className="profile-detail-item">
+                      <strong>Website:</strong> 
+                      <a href={userProfile.website} target="_blank" rel="noopener noreferrer" style={{ marginLeft: 5, color: '#007bff' }}>
+                        {userProfile.website}
+                      </a>
+                    </div>
+                  )}
+                  {userProfile?.phoneNumber && (
+                    <div className="profile-detail-item">
+                      <strong>Telefon:</strong> {userProfile.phoneNumber}
+                    </div>
+                  )}
+                  {userProfile?.dateOfBirth && (
+                    <div className="profile-detail-item">
+                      <strong>Doğum Tarihi:</strong> {new Date(userProfile.dateOfBirth).toLocaleDateString('tr-TR')}
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
           </div>
         )}
 
@@ -159,6 +283,15 @@ export default function ProfilePage({ user, favorites, recipes, onFavoriteClick 
           onClose={handleCloseModal}
         />
       )}
+
+      {/* Profil Düzenleme Modal */}
+      <ProfileEditModal
+        user={user}
+        userProfile={userProfile}
+        isOpen={showProfileEditModal}
+        onClose={() => setShowProfileEditModal(false)}
+        onPhotoUpdate={handleProfilePhotoUpdate}
+      />
     </div>
   );
 }

@@ -55,4 +55,22 @@ export const getImageUrl = (imagePath) => {
   return `${API_BASE_URL}/${imagePath}`;
 };
 
+// Profil fotoğrafı URL'sini düzgün şekilde oluştur
+export const getProfilePhotoUrl = (photoPath) => {
+  if (!photoPath) return null;
+  
+  // Eğer zaten tam URL ise, olduğu gibi döndür
+  if (photoPath.startsWith('http://') || photoPath.startsWith('https://')) {
+    return photoPath;
+  }
+  
+  // Backend'de /images/ProfilePhoto/ şeklinde kaydedildiği için
+  if (photoPath.startsWith('/images/ProfilePhoto/')) {
+    return `${API_BASE_URL}${photoPath}`;
+  }
+  
+  // Eğer sadece dosya adı ise, /images/ProfilePhoto/ ile birleştir
+  return `${API_BASE_URL}/images/ProfilePhoto/${photoPath}`;
+};
+
 export default api; 
