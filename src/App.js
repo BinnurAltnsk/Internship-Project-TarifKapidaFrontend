@@ -3,10 +3,10 @@ import Navbar from "./components/Navbar";
 import RecipeCard from "./components/Recipe/RecipeCard";
 import "./App.css";
 import { BrowserRouter as Router, Routes, Route, useNavigate } from "react-router-dom";
-import ProfilePage from "./ProfilePage";
+import ProfilePage from "./components/Profile/ProfilePage";
 import RecipeDetailModal from "./components/Recipe/RecipeDetailModal";
 import { recipeService } from "./services/recipeService";
-import { userService } from "./services/userService";
+import { userService } from "./services/Profile/userService";
 import { favoriteService } from "./services/favoriteService";
 import { getImageUrl } from "./services/api";
 

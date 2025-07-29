@@ -33,13 +33,16 @@ export const userService = {
   // UserProfile oluştur
   createUserProfile: (userProfileData) => api.post('/api/UserProfile/CreateUserProfile', userProfileData),
   
-  // Profil fotoğrafı yükle
+  // Profil var mı kontrol et
+  profileExists: (userId) => api.get(`/api/UserProfile/ProfileExists/${userId}`),
+  
+  // Profil fotoğrafı yükle - Backend API'sine uygun
   uploadProfilePhoto: (userId, file) => {
     const formData = new FormData();
     formData.append('file', file);
     formData.append('userId', userId);
     
-    return api.post('/api/UserProfile/UploadProfilePhoto', formData, {
+    return api.post('/api/UserProfile/UploadUserProfilePhoto', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
@@ -47,8 +50,23 @@ export const userService = {
   },
   
   // Profil fotoğrafını getir
-  getProfilePhoto: (userId) => api.get(`/api/UserProfile/GetProfilePhoto/${userId}`),
+  getProfilePhoto: (userId) => api.get(`/api/UserProfile/GetUserProfilePhoto/${userId}`),
   
   // Profil fotoğrafını sil
-  deleteProfilePhoto: (userId) => api.delete(`/api/UserProfile/DeleteProfilePhoto/${userId}`),
+  deleteProfilePhoto: (userId) => api.post(`/api/UserProfile/DeleteUserProfilePhoto/${userId}`),
+  
+  // Bildirim ayarlarını güncelle
+  updateNotificationSettings: (settings) => api.put('/api/UserProfile/UpdateNotificationSettings', settings),
+  
+  // Bildirim ayarlarını getir
+  getNotificationSettings: (userId) => api.get(`/api/UserProfile/GetNotificationSettings/${userId}`),
+  
+  // Sosyal hesap bağla
+  linkSocialAccount: (userId, provider, accessToken) => 
+    api.get('/api/UserProfile/LinkSocialAccount', {
+      params: { userId, provider, accessToken }
+    }),
+  
+  // Bağlı sosyal hesapları getir
+  getLinkedSocialAccounts: (userId) => api.get(`/api/UserProfile/GetLinkedSocialAccounts/${userId}`),
 }; 
