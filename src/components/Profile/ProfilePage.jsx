@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import "./ProfilePage.css";
 import { reviewService } from "../../services/reviewService";
-import { userService } from "../../services/Profile/userService";
+import { userService } from "../../services/userService";
 import { getProfilePhotoUrl } from "../../services/api";
 import RecipeCard from "../Recipe/RecipeCard";
 import RecipeDetailModal from "../Recipe/RecipeDetailModal";
@@ -9,14 +9,14 @@ import ProfileEditModal from "./ProfileEditModal";
 
 const tabs = [
   { key: "profile", label: "Profil" },
-  { key: "recipes", label: "Tarif Defteri" },
+  { key: "favorites", label: "Favoriler" },
   { key: "comments", label: "Yorumlarım" },
 ];
 
 export default function ProfilePage({ user, favorites, recipes, onFavoriteClick }) {
   const [activeTab, setActiveTab] = useState("profile");
   const [userComments, setUserComments] = useState([]);
-  const [loadingComments, setLoadingComments] = useState(true);
+  const [loadingComments, setLoadingComments] = useState(false);
   const [selectedRecipe, setSelectedRecipe] = useState(null);
   const [showRecipeModal, setShowRecipeModal] = useState(false);
   const [showProfileEditModal, setShowProfileEditModal] = useState(false);
@@ -24,61 +24,53 @@ export default function ProfilePage({ user, favorites, recipes, onFavoriteClick 
   const [userProfile, setUserProfile] = useState(null);
   const [loadingProfile, setLoadingProfile] = useState(true);
 
-  const favoriteRecipes = recipes.filter((r) => favorites.includes(r.recipeId));
-
   useEffect(() => {
     if (user?.userId) {
-      loadUserComments();
       loadUserProfile();
+      loadUserComments();
     }
   }, [user]);
+
+  useEffect(() => {
+    if (userProfile?.profileImageUrl) {
+      const photoUrl = getProfilePhotoUrl(userProfile.profileImageUrl);
+      setProfilePhoto(photoUrl);
+    }
+  }, [userProfile]);
 
   const loadUserProfile = async () => {
     try {
       setLoadingProfile(true);
-      console.log('Kullanıcı profili yükleniyor...', user.userId);
       
-      // Önce profil var mı kontrol et
+      // Profil var mı kontrol et
       const existsResponse = await userService.profileExists(user.userId);
-      console.log('Profil var mı:', existsResponse.data);
       
       if (existsResponse.data) {
         // Profil varsa getir
         const response = await userService.getUserProfile(user.userId);
-        console.log('Profil response:', response);
-        
         if (response.data) {
           setUserProfile(response.data);
-          // Profil fotoğrafını da ayarla (backend'de ProfileImageUrl olarak geliyor)
-          if (response.data.profileImageUrl) {
-            const photoUrl = getProfilePhotoUrl(response.data.profileImageUrl);
-            console.log('Profil fotoğrafı URL:', photoUrl);
-            setProfilePhoto(photoUrl);
-          }
         }
       } else {
         // Profil yoksa oluştur
-        console.log('Profil bulunamadı, yeni profil oluşturuluyor...');
         await createUserProfile();
       }
     } catch (error) {
-      console.error("Kullanıcı profili yüklenemedi:", error);
-      console.error("Error details:", error.response?.data);
-      
-      // Eğer profil bulunamazsa, yeni profil oluşturmayı dene
+      console.error("Profil yükleme hatası:", error);
+      // Hata durumunda yeni profil oluşturmayı dene
       try {
         await createUserProfile();
       } catch (createError) {
-        console.error("Yeni profil oluşturulamadı:", createError);
+        console.error("Profil oluşturma hatası:", createError);
       }
     } finally {
       setLoadingProfile(false);
     }
   };
 
+  // Yeni profil oluştur
   const createUserProfile = async () => {
     try {
-      console.log('Yeni profil oluşturuluyor...');
       const newProfile = {
         userId: user.userId,
         username: user.username,
@@ -92,75 +84,72 @@ export default function ProfilePage({ user, favorites, recipes, onFavoriteClick 
       };
       
       const response = await userService.createUserProfile(newProfile);
-      console.log('Profil oluşturma response:', response);
-      
       if (response.data) {
         setUserProfile(response.data);
-        console.log('Yeni profil oluşturuldu:', response.data);
       }
     } catch (error) {
       console.error("Profil oluşturma hatası:", error);
-      console.error("Error details:", error.response?.data);
     }
   };
 
+  // Kullanıcı yorumlarını yükle
   const loadUserComments = async () => {
     try {
       setLoadingComments(true);
       const response = await reviewService.getReviews();
-      // Kullanıcının yorumlarını filtrele
       const userReviews = response.data.filter(review => review.userId === user.userId);
       setUserComments(userReviews);
     } catch (error) {
-      console.error("Kullanıcı yorumları yüklenemedi:", error);
+      console.error("Yorumlar yüklenemedi:", error);
     } finally {
       setLoadingComments(false);
     }
   };
 
-  const handleRecipeClick = (recipe) => {
-    setSelectedRecipe(recipe);
-    setShowRecipeModal(true);
-  };
-
-  const handleCloseModal = () => {
-    setShowRecipeModal(false);
-    setSelectedRecipe(null);
-  };
-
+  // Profil fotoğrafı güncelleme
   const handleProfilePhotoUpdate = async (photoUrl) => {
-    console.log('Profil fotoğrafı güncelleniyor:', photoUrl);
-    const fullPhotoUrl = getProfilePhotoUrl(photoUrl);
-    setProfilePhoto(fullPhotoUrl);
-    
-    // UserProfile'ı da güncelle
     if (userProfile) {
       try {
         const updatedProfile = {
           ...userProfile,
           profileImageUrl: photoUrl
         };
-        console.log('Profil güncelleniyor:', updatedProfile);
         
         const response = await userService.updateUserProfile(updatedProfile);
-        console.log('Profil güncelleme response:', response);
-        
         if (response.data) {
           setUserProfile(response.data);
         }
       } catch (error) {
-        console.error("Profil güncellenirken hata:", error);
-        console.error("Error details:", error.response?.data);
+        console.error("Profil güncelleme hatası:", error);
       }
     }
   };
 
+  // Tarif detayı aç
+  const handleRecipeClick = (recipe) => {
+    setSelectedRecipe(recipe);
+    setShowRecipeModal(true);
+  };
+
+  // Modal kapat
+  const handleCloseModal = () => {
+    setShowRecipeModal(false);
+    setSelectedRecipe(null);
+  };
+
+  // Favori tarifleri filtrele
+  const favoriteRecipes = recipes.filter((r) => favorites.includes(r.recipeId));
+
   return (
     <div className="profile-root">
+      {/* Profil Başlığı */}
       <div className="profile-cover">
-        <button className="profile-photo-btn" onClick={() => setShowProfileEditModal(true)}>📷 Profili Düzenle</button>
+        <button className="profile-photo-btn" onClick={() => setShowProfileEditModal(true)}>
+          📷 Profili Düzenle
+        </button>
       </div>
 
+      {/* Profil Ana Bilgileri */}
       <div className="profile-main">
         <div className="profile-avatar">
           {profilePhoto ? (
@@ -169,7 +158,6 @@ export default function ProfilePage({ user, favorites, recipes, onFavoriteClick 
               alt="Profil fotoğrafı" 
               className="profile-photo"
               onError={(e) => {
-                console.error('Profil fotoğrafı yüklenemedi:', e.target.src);
                 e.target.style.display = 'none';
                 e.target.nextSibling.style.display = 'block';
               }}
@@ -183,9 +171,12 @@ export default function ProfilePage({ user, favorites, recipes, onFavoriteClick 
           <div className="profile-name">{user?.username || "Kullanıcı"}</div>
           <div className="profile-username">@{user?.username || "kullanici"}</div>
         </div>
-        <button className="profile-edit-btn" onClick={() => setShowProfileEditModal(true)}>Profili Düzenle</button>
+        <button className="profile-edit-btn" onClick={() => setShowProfileEditModal(true)}>
+          Profili Düzenle
+        </button>
       </div>
 
+      {/* Tab Menüsü */}
       <div className="profile-tabs">
         {tabs.map((tab) => (
           <button
@@ -198,7 +189,9 @@ export default function ProfilePage({ user, favorites, recipes, onFavoriteClick 
         ))}
       </div>
 
+      {/* Tab İçerikleri */}
       <div className="profile-tab-content">
+        {/* Profil Tab */}
         {activeTab === "profile" && (
           <div>
             {loadingProfile ? (
@@ -256,7 +249,8 @@ export default function ProfilePage({ user, favorites, recipes, onFavoriteClick 
           </div>
         )}
 
-        {activeTab === "recipes" && (
+        {/* Favoriler Tab */}
+        {activeTab === "favorites" && (
           <div>
             <h3>Favori Tariflerin ({favoriteRecipes.length})</h3>
             <div className="recipe-grid">
@@ -284,6 +278,7 @@ export default function ProfilePage({ user, favorites, recipes, onFavoriteClick 
           </div>
         )}
 
+        {/* Yorumlar Tab */}
         {activeTab === "comments" && (
           <div>
             <h3>Yorumlarım ({userComments.length})</h3>
@@ -294,7 +289,6 @@ export default function ProfilePage({ user, favorites, recipes, onFavoriteClick 
             ) : (
               <ul style={{ listStyle: "none", paddingLeft: 0 }}>
                 {userComments.map((comment) => {
-                  // Yorumun ait olduğu tarifi bul
                   const recipe = recipes.find(r => r.recipeId === comment.recipeId);
                   const recipeName = recipe ? recipe.recipeName : "Tarif silinmiş";
 
@@ -315,7 +309,7 @@ export default function ProfilePage({ user, favorites, recipes, onFavoriteClick 
         )}
       </div>
       
-      {/* Tarif Detay Modal */}
+      {/* Modaller */}
       {showRecipeModal && selectedRecipe && (
         <RecipeDetailModal
           recipe={selectedRecipe}
@@ -324,7 +318,6 @@ export default function ProfilePage({ user, favorites, recipes, onFavoriteClick 
         />
       )}
 
-      {/* Profil Düzenleme Modal */}
       <ProfileEditModal
         user={user}
         userProfile={userProfile}

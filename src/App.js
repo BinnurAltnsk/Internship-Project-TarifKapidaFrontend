@@ -6,7 +6,7 @@ import { BrowserRouter as Router, Routes, Route, useNavigate } from "react-route
 import ProfilePage from "./components/Profile/ProfilePage";
 import RecipeDetailModal from "./components/Recipe/RecipeDetailModal";
 import { recipeService } from "./services/recipeService";
-import { userService } from "./services/Profile/userService";
+import { userService } from "./services/userService";
 import { favoriteService } from "./services/favoriteService";
 import { getImageUrl } from "./services/api";
 
@@ -154,6 +154,7 @@ function App() {
     if (jwt && savedUser) {
       try {
         const userData = JSON.parse(savedUser);
+        console.log("Kullanıcı bilgileri:", userData);
         setUser(userData);
       } catch (error) {
         console.error("Kullanıcı bilgileri yüklenemedi:", error);

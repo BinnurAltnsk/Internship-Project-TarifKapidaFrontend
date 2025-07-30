@@ -1,13 +1,30 @@
-import React, { useState, useRef } from 'react';
-import { userService } from '../../services/Profile/userService';
+import React, { useState, useRef, useEffect } from 'react';
+import { userService } from '../../services/userService';
 import './ProfilePhotoUpload.css';
 
-const ProfilePhotoUpload = ({ user, userProfile, onPhotoUpdate }) => {
+const ProfilePhotoUpload = ({ user, onPhotoUpdate }) => {
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState('');
   const [previewUrl, setPreviewUrl] = useState(null);
+  const [base64Image, setBase64Image] = useState(null);
   const fileInputRef = useRef(null);
 
+  useEffect(() => {
+    if (base64Image) {
+      setPreviewUrl(base64Image);
+    }
+  }, [base64Image]);
+  
+  useEffect(() => {
+    if (error) {
+      const timer = setTimeout(() => {
+        setError('');
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [error]);
+
+  // Dosya seçme işlemi
   const handleFileSelect = (event) => {
     const file = event.target.files[0];
     if (!file) return;
@@ -24,90 +41,67 @@ const ProfilePhotoUpload = ({ user, userProfile, onPhotoUpdate }) => {
       return;
     }
 
-    setError('');
-    
-    // Önizleme için URL oluştur
+    // Base64'e çevir
     const reader = new FileReader();
     reader.onload = (e) => {
-      setPreviewUrl(e.target.result);
+      setBase64Image(e.target.result);
     };
     reader.readAsDataURL(file);
   };
 
+  // Resim yükleme işlemi
   const handleUpload = async () => {
-    if (!fileInputRef.current?.files[0]) {
-      setError('Lütfen bir dosya seçin.');
+    if (!base64Image || !user?.userId) {
+      setError('Lütfen bir resim seçin ve giriş yapın.');
       return;
     }
 
-    if (!user?.userId) {
-      setError('Kullanıcı bilgileri bulunamadı.');
-      return;
-    }
-
-    const file = fileInputRef.current.files[0];
-    
     try {
       setIsUploading(true);
       setError('');
-      
-      console.log('Profil fotoğrafı yükleniyor...', { userId: user.userId, fileName: file.name });
-      
-      const response = await userService.uploadProfilePhoto(user.userId, file);
-      
-      console.log('Upload response:', response);
-      
-      // Backend'den ProfileImageUrl olarak geliyor
-      if (response.data && response.data.profileImageUrl) {
-        console.log('Fotoğraf başarıyla yüklendi:', response.data.profileImageUrl);
-        
-        // Başarılı yükleme sonrası callback
+
+      const response = await userService.uploadProfilePhotoBase64(user.userId, base64Image);
+
+      if (response.data?.ProfileImageUrl) {
+        // Başarılı yükleme
         if (onPhotoUpdate) {
-          onPhotoUpdate(response.data.profileImageUrl);
+          onPhotoUpdate(response.data.ProfileImageUrl);
         }
         
         // Formu temizle
-        setPreviewUrl(null);
-        fileInputRef.current.value = '';
-        
+        resetForm();
         alert('Profil fotoğrafı başarıyla yüklendi!');
       } else {
-        console.error('Response data eksik:', response.data);
-        setError('Fotoğraf yüklenirken bir hata oluştu. Response data eksik.');
+        setError('Fotoğraf yüklenirken bir hata oluştu.');
       }
     } catch (error) {
-      console.error('Fotoğraf yükleme hatası:', error);
-      console.error('Error response:', error.response?.data);
-      console.error('Error status:', error.response?.status);
-      
-      let errorMessage = 'Fotoğraf yüklenirken bir hata oluştu. Lütfen tekrar deneyin.';
-      
-      if (error.response?.data) {
-        if (typeof error.response.data === 'string') {
-          errorMessage = error.response.data;
-        } else if (error.response.data.message) {
-          errorMessage = error.response.data.message;
-        }
-      }
-      
-      setError(errorMessage);
+      console.error('Yükleme hatası:', error);
+      setError(error.response?.data?.message || 'Fotoğraf yüklenirken bir hata oluştu.');
     } finally {
       setIsUploading(false);
     }
   };
 
-  const handleCancel = () => {
+  // Formu temizle
+  const resetForm = () => {
     setPreviewUrl(null);
+    setBase64Image(null);
     setError('');
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
   };
 
+  // İptal işlemi
+  const handleCancel = () => {
+    resetForm();
+  };
+
   return (
     <div className="profile-photo-upload">
       <h3>Profil Fotoğrafı Yükle</h3>
       
+      {/* Dosya Seçme */}
       <div className="upload-section">
         <input
           ref={fileInputRef}
@@ -122,8 +116,10 @@ const ProfilePhotoUpload = ({ user, userProfile, onPhotoUpdate }) => {
         </label>
       </div>
 
+      {/* Hata Mesajı */}
       {error && <div className="error-message">{error}</div>}
 
+      {/* Önizleme */}
       {previewUrl && (
         <div className="preview-section">
           <h4>Önizleme:</h4>
@@ -143,6 +139,7 @@ const ProfilePhotoUpload = ({ user, userProfile, onPhotoUpdate }) => {
         </div>
       )}
 
+      {/* Bilgi */}
       <div className="upload-info">
         <p><strong>Desteklenen formatlar:</strong> JPG, PNG, GIF</p>
         <p><strong>Maksimum dosya boyutu:</strong> 5MB</p>

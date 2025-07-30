@@ -49,6 +49,18 @@ export const userService = {
     });
   },
   
+  // Profil fotoğrafı yükle - Base64 ile (backend kodlarınıza göre)
+  uploadProfilePhotoBase64: (userId, base64Image) => {
+    return api.post('/api/UserProfile/UploadUserProfilePhoto', {
+      userId: userId,
+      ProfileImageUrl: base64Image // Backend kodlarınızdaki UserProfileRequest modeline uygun
+    }, {
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+  },
+  
   // Profil fotoğrafını getir
   getProfilePhoto: (userId) => api.get(`/api/UserProfile/GetUserProfilePhoto/${userId}`),
   
@@ -69,4 +81,6 @@ export const userService = {
   
   // Bağlı sosyal hesapları getir
   getLinkedSocialAccounts: (userId) => api.get(`/api/UserProfile/GetLinkedSocialAccounts/${userId}`),
+  
+  getUserProfileByUserId: (userId) => api.get(`/api/UserProfile/GetUserProfile/${userId}`),
 }; 

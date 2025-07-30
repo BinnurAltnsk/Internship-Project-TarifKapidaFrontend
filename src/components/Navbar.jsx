@@ -5,7 +5,6 @@ const Navbar = ({ searchTerm, setSearchTerm, selectedCategory, setSelectedCatego
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef();
 
-  // Dışarı tıklanınca menüyü kapat
   useEffect(() => {
     function handleClick(e) {
       if (menuRef.current && !menuRef.current.contains(e.target)) setMenuOpen(false);
@@ -17,9 +16,6 @@ const Navbar = ({ searchTerm, setSearchTerm, selectedCategory, setSelectedCatego
   console.log("Navbar kategorileri:", categories);
   console.log("Navbar user:", user);
 
-//  tarifler 1  * yorumlar
-
-  
   return (
     <nav className="navbar">
       <div style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between" }}>

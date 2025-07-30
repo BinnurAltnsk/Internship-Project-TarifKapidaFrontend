@@ -1,6 +1,7 @@
 import axios from 'axios';
 
 const API_BASE_URL = 'http://localhost:7175';
+localStorage.setItem('API_BASE_URL', API_BASE_URL);
 
 // Axios instance oluştur
 const api = axios.create({

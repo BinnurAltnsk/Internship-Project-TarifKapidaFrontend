@@ -38,6 +38,24 @@
   background: #0056b3;
 }
 
+.pick-image-btn {
+  display: block;
+  width: 100%;
+  margin-top: 10px;
+  padding: 12px 24px;
+  background: #17a2b8;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+  font-size: 14px;
+}
+
+.pick-image-btn:hover {
+  background: #138496;
+}
+
 .error-message {
   color: #dc3545;
   background: #f8d7da;
