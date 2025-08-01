@@ -1,8 +1,12 @@
 import React, { useState, useRef, useEffect } from "react";
+import { userService } from "../services/userService";
+import { getProfilePhotoUrl } from "../services/api";
 import "./Navbar.css";
 
 const Navbar = ({ searchTerm, setSearchTerm, selectedCategory, setSelectedCategory, categories, onLoginClick, onRegisterClick, user, onLogout, onProfileClick, onLogoClick, theme, toggleTheme }) => {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [userProfile, setUserProfile] = useState(null);
+  const [profilePhoto, setProfilePhoto] = useState(null);
   const menuRef = useRef();
 
   useEffect(() => {
@@ -12,6 +16,44 @@ const Navbar = ({ searchTerm, setSearchTerm, selectedCategory, setSelectedCatego
     if (menuOpen) document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
   }, [menuOpen]);
+
+  // Kullanıcı profili yükle
+  useEffect(() => {
+    if (user?.userId) {
+      loadUserProfile();
+    }
+  }, [user]);
+
+  // Profil fotoğrafını ayarla
+  useEffect(() => {
+    if (userProfile?.profileImageBase64) {
+      // Base64 formatında ise doğrudan kullan
+      if (userProfile.profileImageBase64.startsWith('data:image/')) {
+        setProfilePhoto(userProfile.profileImageBase64);
+      } else {
+        // Dosya yolu formatında ise URL oluştur
+        const photoUrl = getProfilePhotoUrl(userProfile.profileImageBase64);
+        setProfilePhoto(photoUrl);
+      }
+    }
+  }, [userProfile]);
+
+  const loadUserProfile = async () => {
+    try {
+      // Profil var mı kontrol et
+      const existsResponse = await userService.profileExists(user.userId);
+      
+      if (existsResponse.data) {
+        // Profil varsa getir
+        const response = await userService.getUserProfile(user.userId);
+        if (response.data) {
+          setUserProfile(response.data);
+        }
+      }
+    } catch (error) {
+      console.error("Navbar - Profil yükleme hatası:", error);
+    }
+  };
 
   console.log("Navbar kategorileri:", categories);
   console.log("Navbar user:", user);
@@ -30,7 +72,19 @@ const Navbar = ({ searchTerm, setSearchTerm, selectedCategory, setSelectedCatego
           {user && user.username ? (
             <div style={{ position: "relative" }} ref={menuRef}>
               <button className="nav-profile-btn" onClick={() => setMenuOpen(v => !v)}>
-                <span className="nav-profile-icon">👤</span> {user.username || user.email}
+                {profilePhoto ? (
+                  <img 
+                    src={profilePhoto} 
+                    alt="Profil fotoğrafı" 
+                    className="nav-profile-photo"
+                    onError={(e) => {
+                      e.target.style.display = 'none';
+                      e.target.nextSibling.style.display = 'inline';
+                    }}
+                  />
+                ) : null}
+                <span className="nav-profile-icon" style={{ display: profilePhoto ? 'none' : 'inline' }}>👤</span>
+                {user.username || user.email}
               </button>
               {menuOpen && (
                 <div className="nav-profile-menu">

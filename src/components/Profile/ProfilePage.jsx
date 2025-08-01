@@ -13,7 +13,7 @@ const tabs = [
   { key: "comments", label: "Yorumlarım" },
 ];
 
-export default function ProfilePage({ user, favorites, recipes, onFavoriteClick }) {
+export default function ProfilePage({ user, favorites, recipes, onFavoriteClick, onProfileUpdate }) {
   const [activeTab, setActiveTab] = useState("profile");
   const [userComments, setUserComments] = useState([]);
   const [loadingComments, setLoadingComments] = useState(false);
@@ -32,9 +32,15 @@ export default function ProfilePage({ user, favorites, recipes, onFavoriteClick 
   }, [user]);
 
   useEffect(() => {
-    if (userProfile?.profileImageUrl) {
-      const photoUrl = getProfilePhotoUrl(userProfile.profileImageUrl);
-      setProfilePhoto(photoUrl);
+    if (userProfile?.profileImageBase64) {
+      // Base64 formatında ise doğrudan kullan
+      if (userProfile.profileImageBase64.startsWith('data:image/')) {
+        setProfilePhoto(userProfile.profileImageBase64);
+      } else {
+        // Dosya yolu formatında ise URL oluştur
+        const photoUrl = getProfilePhotoUrl(userProfile.profileImageBase64);
+        setProfilePhoto(photoUrl);
+      }
     }
   }, [userProfile]);
 
@@ -71,17 +77,17 @@ export default function ProfilePage({ user, favorites, recipes, onFavoriteClick 
   // Yeni profil oluştur
   const createUserProfile = async () => {
     try {
-      const newProfile = {
-        userId: user.userId,
-        username: user.username,
-        email: user.email,
-        profileImageUrl: null,
-        bio: null,
-        location: null,
-        website: null,
-        dateOfBirth: null,
-        phoneNumber: null
-      };
+             const newProfile = {
+         userId: user.userId,
+         username: user.username,
+         email: user.email,
+         profileImageBase64: null,
+         bio: null,
+         location: null,
+         website: null,
+         dateOfBirth: null,
+         phoneNumber: null
+       };
       
       const response = await userService.createUserProfile(newProfile);
       if (response.data) {
@@ -112,12 +118,16 @@ export default function ProfilePage({ user, favorites, recipes, onFavoriteClick 
       try {
         const updatedProfile = {
           ...userProfile,
-          profileImageUrl: photoUrl
+          profileImageBase64: photoUrl // Backend'deki property adına uygun
         };
         
         const response = await userService.updateUserProfile(updatedProfile);
         if (response.data) {
           setUserProfile(response.data);
+          // Navbar'ı güncellemek için callback çağır
+          if (onProfileUpdate) {
+            onProfileUpdate();
+          }
         }
       } catch (error) {
         console.error("Profil güncelleme hatası:", error);

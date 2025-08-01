@@ -62,10 +62,10 @@ const ProfilePhotoUpload = ({ user, onPhotoUpdate }) => {
 
       const response = await userService.uploadProfilePhotoBase64(user.userId, base64Image);
 
-      if (response.data?.ProfileImageUrl) {
+      if (response.data?.profileImageBase64) {
         // Başarılı yükleme
         if (onPhotoUpdate) {
-          onPhotoUpdate(response.data.ProfileImageUrl);
+          onPhotoUpdate(response.data.profileImageBase64);
         }
         
         // Formu temizle

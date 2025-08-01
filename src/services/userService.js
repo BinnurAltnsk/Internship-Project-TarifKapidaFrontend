@@ -53,7 +53,7 @@ export const userService = {
   uploadProfilePhotoBase64: (userId, base64Image) => {
     return api.post('/api/UserProfile/UploadUserProfilePhoto', {
       userId: userId,
-      ProfileImageUrl: base64Image // Backend kodlarınızdaki UserProfileRequest modeline uygun
+      profileImageBase64: base64Image // Backend'deki property adına uygun
     }, {
       headers: {
         'Content-Type': 'application/json',

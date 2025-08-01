@@ -65,6 +65,11 @@ export const getProfilePhotoUrl = (photoPath) => {
     return photoPath;
   }
   
+  // Base64 formatında ise, doğrudan kullan
+  if (photoPath.startsWith('data:image/')) {
+    return photoPath;
+  }
+  
   // Backend'de /images/ProfilePhoto/ şeklinde kaydedildiği için
   if (photoPath.startsWith('/images/ProfilePhoto/')) {
     return `${API_BASE_URL}${photoPath}`;

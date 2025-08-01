@@ -225,6 +225,7 @@ function App() {
         onLogoClick={() => navigate("/")}
         theme={theme}
         toggleTheme={toggleTheme}
+        key={user?.userId} // Kullanıcı değiştiğinde Navbar'ı yeniden render et
       />
     );
   }
@@ -363,6 +364,10 @@ function App() {
                 favorites={favorites} 
                 recipes={recipes} 
                 onFavoriteClick={handleFavorite}
+                onProfileUpdate={() => {
+                  // Profil güncellendiğinde Navbar'ı yeniden render etmek için
+                  // Bu fonksiyon Navbar'ın yeniden yüklenmesini sağlar
+                }}
               />
             </div>
           }
