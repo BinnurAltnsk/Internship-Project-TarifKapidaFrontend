@@ -21,5 +21,8 @@ export const reviewService = {
       params: { recipeId, page, pageSize },
     });
     return res.data; // Bu satır: JSON objesini döner (içinde data, totalPages vs. var)
-  }
+  },
+
+  // Kullanıcının yorumlarını tarif bilgileriyle birlikte getir
+  getUserReviewsWithRecipes: (userId) => api.get(`/api/Review/GetUserReviewsWithRecipes/${userId}`)
 }; 

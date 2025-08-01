@@ -9,37 +9,82 @@ const Navbar = ({ searchTerm, setSearchTerm, selectedCategory, setSelectedCatego
   const [profilePhoto, setProfilePhoto] = useState(null);
   const menuRef = useRef();
 
-  useEffect(() => {
-    function handleClick(e) {
-      if (menuRef.current && !menuRef.current.contains(e.target)) setMenuOpen(false);
-    }
-    if (menuOpen) document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, [menuOpen]);
+  // Arama input'u için local state
+  const [localSearchTerm, setLocalSearchTerm] = useState(searchTerm);
+
+  // Local search term değiştiğinde parent'a bildir
+  const handleSearchChange = (e) => {
+    const newValue = e.target.value;
+    setLocalSearchTerm(newValue);
+    setSearchTerm(newValue);
+  };
+
+
 
   // Kullanıcı profili yükle
   useEffect(() => {
     if (user?.userId) {
-      loadUserProfile();
+      // Önceki profil verilerini temizle
+      setUserProfile(null);
+      setProfilePhoto(null);
+      
+      // Kısa bir gecikme ile profil yükle
+      const timer = setTimeout(() => {
+        loadUserProfile();
+      }, 100);
+      
+      return () => clearTimeout(timer);
+    } else {
+      // Kullanıcı yoksa profil bilgilerini temizle
+      setUserProfile(null);
+      setProfilePhoto(null);
     }
-  }, [user]);
+  }, [user?.userId, user?.username]); // Hem userId hem de username değişikliklerini izle
 
   // Profil fotoğrafını ayarla
   useEffect(() => {
-    if (userProfile?.profileImageBase64) {
+    console.log("Navbar - Profil fotoğrafı ayarlanıyor:", {
+      userProfile: userProfile,
+      profileImageBase64: userProfile?.profileImageBase64,
+      userId: user?.userId,
+      username: user?.username
+    });
+    
+    if (userProfile?.profileImageBase64 && user?.userId) {
       // Base64 formatında ise doğrudan kullan
       if (userProfile.profileImageBase64.startsWith('data:image/')) {
+        console.log("Navbar - Base64 formatında profil fotoğrafı ayarlanıyor");
         setProfilePhoto(userProfile.profileImageBase64);
       } else {
         // Dosya yolu formatında ise URL oluştur
         const photoUrl = getProfilePhotoUrl(userProfile.profileImageBase64);
-        setProfilePhoto(photoUrl);
+        // Benzersiz cache busting
+        const uniqueId = `${user.userId}_${Date.now()}_${Math.random()}`;
+        const cacheBustUrl = `${photoUrl}?uid=${uniqueId}`;
+        console.log("Navbar - URL formatında profil fotoğrafı ayarlanıyor:", {
+          originalUrl: photoUrl,
+          cacheBustUrl: cacheBustUrl,
+          userId: user.userId
+        });
+        setProfilePhoto(cacheBustUrl);
       }
+    } else {
+      // Profil fotoğrafı yoksa temizle
+      console.log("Navbar - Profil fotoğrafı temizleniyor");
+      setProfilePhoto(null);
     }
-  }, [userProfile]);
+  }, [userProfile?.profileImageBase64, user?.userId]);
 
   const loadUserProfile = async () => {
     try {
+      // Kullanıcı kontrolü
+      if (!user?.userId) {
+        console.log("Navbar - Kullanıcı ID yok, profil yükleme iptal edildi");
+        return;
+      }
+      
+      console.log("Navbar - Profil yükleniyor, userId:", user.userId, "username:", user.username);
+      
       // Profil var mı kontrol et
       const existsResponse = await userService.profileExists(user.userId);
       
@@ -47,11 +92,27 @@ const Navbar = ({ searchTerm, setSearchTerm, selectedCategory, setSelectedCatego
         // Profil varsa getir
         const response = await userService.getUserProfile(user.userId);
         if (response.data) {
-          setUserProfile(response.data);
+          console.log("Navbar - Profil yüklendi:", {
+            profileData: response.data,
+            profileImageBase64: response.data.profileImageBase64,
+            userId: response.data.userId,
+            expectedUserId: user.userId
+          });
+          // Kullanıcı kontrolü yap
+          if (response.data.userId === user.userId) {
+            setUserProfile(response.data);
+          } else {
+            console.log("Navbar - Profil userId eşleşmiyor, profil yüklenmedi");
+            setUserProfile(null);
+          }
         }
+      } else {
+        console.log("Navbar - Profil bulunamadı, userId:", user.userId);
+        setUserProfile(null);
       }
     } catch (error) {
       console.error("Navbar - Profil yükleme hatası:", error);
+      setUserProfile(null);
     }
   };
 
@@ -63,7 +124,7 @@ const Navbar = ({ searchTerm, setSearchTerm, selectedCategory, setSelectedCatego
       <div style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <div className="logo-area" onClick={onLogoClick} style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: 8 }}>
           <span className="logo-icon">🍲</span>
-      <h2 className="logo">Tarif Kapıda</h2>
+          <h2 className="logo">Tarif Kapıda</h2>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <button className="theme-toggle-btn" onClick={toggleTheme}>
@@ -77,6 +138,7 @@ const Navbar = ({ searchTerm, setSearchTerm, selectedCategory, setSelectedCatego
                     src={profilePhoto} 
                     alt="Profil fotoğrafı" 
                     className="nav-profile-photo"
+                    key={`${user?.userId}-${Date.now()}-${Math.random()}`}
                     onError={(e) => {
                       e.target.style.display = 'none';
                       e.target.nextSibling.style.display = 'inline';
@@ -106,8 +168,8 @@ const Navbar = ({ searchTerm, setSearchTerm, selectedCategory, setSelectedCatego
         type="text"
         placeholder="Tarif ara..."
         className="search-input"
-        value={searchTerm}
-        onChange={(e) => setSearchTerm(e.target.value)}
+        value={localSearchTerm}
+        onChange={handleSearchChange}
       />
       <div className="nav-links">
         {categories.map((cat) => (
@@ -124,4 +186,4 @@ const Navbar = ({ searchTerm, setSearchTerm, selectedCategory, setSelectedCatego
   );
 };
 
-export default Navbar;
+export default React.memo(Navbar);

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import "./ProfilePage.css";
 import { reviewService } from "../../services/reviewService";
 import { userService } from "../../services/userService";
+
 import { getProfilePhotoUrl } from "../../services/api";
 import RecipeCard from "../Recipe/RecipeCard";
 import RecipeDetailModal from "../Recipe/RecipeDetailModal";
@@ -26,27 +27,69 @@ export default function ProfilePage({ user, favorites, recipes, onFavoriteClick,
 
   useEffect(() => {
     if (user?.userId) {
-      loadUserProfile();
-      loadUserComments();
+      // Önceki profil verilerini temizle
+      setUserProfile(null);
+      setProfilePhoto(null);
+      setUserComments([]);
+      
+      // Kısa bir gecikme ile profil yükle
+      const timer = setTimeout(() => {
+        loadUserProfile();
+        loadUserComments();
+      }, 100);
+      
+      return () => clearTimeout(timer);
+    } else {
+      // Kullanıcı yoksa profil bilgilerini temizle
+      setUserProfile(null);
+      setProfilePhoto(null);
+      setUserComments([]);
     }
-  }, [user]);
+  }, [user?.userId, user?.username]); // Hem userId hem de username değişikliklerini izle
 
   useEffect(() => {
-    if (userProfile?.profileImageBase64) {
+    console.log("ProfilePage - Profil fotoğrafı ayarlanıyor:", {
+      userProfile: userProfile,
+      profileImageBase64: userProfile?.profileImageBase64,
+      userId: user?.userId,
+      username: user?.username
+    });
+    
+    if (userProfile?.profileImageBase64 && user?.userId) {
       // Base64 formatında ise doğrudan kullan
       if (userProfile.profileImageBase64.startsWith('data:image/')) {
+        console.log("ProfilePage - Base64 formatında profil fotoğrafı ayarlanıyor");
         setProfilePhoto(userProfile.profileImageBase64);
       } else {
         // Dosya yolu formatında ise URL oluştur
         const photoUrl = getProfilePhotoUrl(userProfile.profileImageBase64);
-        setProfilePhoto(photoUrl);
+        // Benzersiz cache busting
+        const uniqueId = `${user.userId}_${Date.now()}_${Math.random()}`;
+        const cacheBustUrl = `${photoUrl}?uid=${uniqueId}`;
+        console.log("ProfilePage - URL formatında profil fotoğrafı ayarlanıyor:", {
+          originalUrl: photoUrl,
+          cacheBustUrl: cacheBustUrl,
+          userId: user.userId
+        });
+        setProfilePhoto(cacheBustUrl);
       }
+    } else {
+      // Profil fotoğrafı yoksa temizle
+      console.log("ProfilePage - Profil fotoğrafı temizleniyor");
+      setProfilePhoto(null);
     }
-  }, [userProfile]);
+  }, [userProfile?.profileImageBase64, user?.userId]);
 
   const loadUserProfile = async () => {
     try {
+      // Kullanıcı kontrolü
+      if (!user?.userId) {
+        console.log("ProfilePage - Kullanıcı ID yok, profil yükleme iptal edildi");
+        return;
+      }
+      
       setLoadingProfile(true);
+      console.log("ProfilePage - Profil yükleniyor, userId:", user.userId, "username:", user.username);
       
       // Profil var mı kontrol et
       const existsResponse = await userService.profileExists(user.userId);
@@ -55,19 +98,32 @@ export default function ProfilePage({ user, favorites, recipes, onFavoriteClick,
         // Profil varsa getir
         const response = await userService.getUserProfile(user.userId);
         if (response.data) {
-          setUserProfile(response.data);
+          console.log("ProfilePage - Profil yüklendi:", {
+            profileData: response.data,
+            profileImageBase64: response.data.profileImageBase64,
+            userId: response.data.userId,
+            expectedUserId: user.userId
+          });
+          // Kullanıcı kontrolü yap
+          if (response.data.userId === user.userId) {
+            setUserProfile(response.data);
+          } else {
+            console.log("ProfilePage - Profil userId eşleşmiyor, yeni profil oluşturuluyor");
+            await createUserProfile();
+          }
         }
       } else {
         // Profil yoksa oluştur
+        console.log("ProfilePage - Profil bulunamadı, yeni profil oluşturuluyor");
         await createUserProfile();
       }
     } catch (error) {
-      console.error("Profil yükleme hatası:", error);
+      console.error("ProfilePage - Profil yükleme hatası:", error);
       // Hata durumunda yeni profil oluşturmayı dene
       try {
         await createUserProfile();
       } catch (createError) {
-        console.error("Profil oluşturma hatası:", createError);
+        console.error("ProfilePage - Profil oluşturma hatası:", createError);
       }
     } finally {
       setLoadingProfile(false);
@@ -107,6 +163,7 @@ export default function ProfilePage({ user, favorites, recipes, onFavoriteClick,
       setUserComments(userReviews);
     } catch (error) {
       console.error("Yorumlar yüklenemedi:", error);
+      setUserComments([]);
     } finally {
       setLoadingComments(false);
     }
@@ -148,7 +205,9 @@ export default function ProfilePage({ user, favorites, recipes, onFavoriteClick,
   };
 
   // Favori tarifleri filtrele
-  const favoriteRecipes = recipes.filter((r) => favorites.includes(r.recipeId));
+  const favoriteRecipes = recipes.filter((r) => favorites && favorites.includes(r.recipeId));
+  
+
 
   return (
     <div className="profile-root">
@@ -162,17 +221,18 @@ export default function ProfilePage({ user, favorites, recipes, onFavoriteClick,
       {/* Profil Ana Bilgileri */}
       <div className="profile-main">
         <div className="profile-avatar">
-          {profilePhoto ? (
-            <img 
-              src={profilePhoto} 
-              alt="Profil fotoğrafı" 
-              className="profile-photo"
-              onError={(e) => {
-                e.target.style.display = 'none';
-                e.target.nextSibling.style.display = 'block';
-              }}
-            />
-          ) : null}
+                                           {profilePhoto ? (
+              <img 
+                src={profilePhoto} 
+                alt="Profil fotoğrafı" 
+                className="profile-photo"
+                key={`${user?.userId}-${Date.now()}-${Math.random()}`}
+                onError={(e) => {
+                  e.target.style.display = 'none';
+                  e.target.nextSibling.style.display = 'block';
+                }}
+              />
+            ) : null}
           <span role="img" aria-label="avatar" style={{ fontSize: 64, display: profilePhoto ? 'none' : 'block' }}>
             👤
           </span>
@@ -297,23 +357,26 @@ export default function ProfilePage({ user, favorites, recipes, onFavoriteClick,
             ) : userComments.length === 0 ? (
               <p>Henüz yorum yapmadınız.</p>
             ) : (
-              <ul style={{ listStyle: "none", paddingLeft: 0 }}>
-                {userComments.map((comment) => {
-                  const recipe = recipes.find(r => r.recipeId === comment.recipeId);
-                  const recipeName = recipe ? recipe.recipeName : "Tarif silinmiş";
+                             <ul style={{ listStyle: "none", paddingLeft: 0 }}>
+                 {userComments.map((comment) => {
+                   const recipe = recipes.find((r) => r.recipeId === comment.recipeId);
+                   const recipeName = recipe ? recipe.recipeName : "Tarif silinmiş";
 
-                  return (
-                    <li
-                      key={comment.reviewId}
-                      style={{ marginBottom: 12, borderBottom: "1px solid #ccc", paddingBottom: 8 }}
-                    >
-                      <strong>{recipeName}</strong>
-                      <p>{comment.reviewText}</p>
-                      <small>⭐ {typeof comment.rating === "number" ? `${comment.rating} / 5` : "Puan yok"}</small>
-                    </li>
-                  );
-                })}
-              </ul>
+                   return (
+                     <li
+                       key={comment.reviewId}
+                       style={{ marginBottom: 12, borderBottom: "1px solid #ccc", paddingBottom: 8 }}
+                     >
+                       <strong>{recipeName}</strong>
+                       <p>{comment.reviewText}</p>
+                       <small>⭐ {typeof comment.rating === "number" ? `${comment.rating} / 5` : "Puan yok"}</small>
+                       <small style={{ display: 'block', fontSize: '10px', color: '#999' }}>
+                         Debug: Yorum ID={comment.reviewId}, Tarif ID={comment.recipeId}, Bulunan Tarif={recipe ? recipe.recipeName : 'Bulunamadı'}
+                       </small>
+                     </li>
+                   );
+                 })}
+               </ul>
             )}
           </div>
         )}

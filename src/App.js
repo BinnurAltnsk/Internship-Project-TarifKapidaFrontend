@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import Navbar from "./components/Navbar";
 import RecipeCard from "./components/Recipe/RecipeCard";
 import "./App.css";
@@ -26,6 +26,37 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [favError, setFavError] = useState("");
   const [theme, setTheme] = useState('light');
+
+  // Filtrelenmiş tarifleri memoize et
+  const filteredRecipes = useMemo(() => {
+    return recipes.filter((r) => {
+      if (!r) return false;
+      const title = r.recipeName?.toLowerCase() || "";
+      const category = r.category || "";
+      const search = searchTerm.toLowerCase();
+      const matchesSearch =
+        title.includes(search) ||
+        category.toLowerCase().includes(search);
+      const matchesCategory =
+        selectedCategory === "Tümü" ||
+        (category && category.trim().toLowerCase() === selectedCategory.trim().toLowerCase());
+
+      // Malzeme bazlı filtreleme
+      let matchesIngredients = true;
+      if (userIngredients.length > 0) {
+        let recipeIngredients = [];
+        if (typeof r.recipeIngredients === "string") {
+          recipeIngredients = r.recipeIngredients.split(/,|\n/).map(i => i.trim().toLowerCase()).filter(Boolean);
+        } else if (Array.isArray(r.recipeIngredients)) {
+          recipeIngredients = r.recipeIngredients.map(i => i.trim().toLowerCase());
+        }
+        matchesIngredients = userIngredients.some(userIng =>
+          recipeIngredients.some(recipeIng => recipeIng.includes(userIng))
+        );
+      }
+      return matchesSearch && matchesCategory && matchesIngredients;
+    });
+  }, [recipes, searchTerm, selectedCategory, userIngredients]);
 
   // Tema yönetimi
   useEffect(() => {
@@ -138,11 +169,31 @@ function App() {
 
   const loadUserFavorites = async () => {
     try {
+      console.log("Favoriler yükleniyor, userId:", user.userId);
       const response = await favoriteService.getUserFavorites(user.userId);
+      console.log("Favoriler API response:", response);
+      
       const favoritesData = response.data;
-      setFavorites(favoritesData.map(fav => fav.recipeId));
+      console.log("Favoriler data:", favoritesData);
+      
+      // Farklı veri yapılarını kontrol et
+      let favoriteIds = [];
+      if (Array.isArray(favoritesData)) {
+        if (favoritesData.length > 0 && typeof favoritesData[0] === 'object' && favoritesData[0].recipeId) {
+          // { recipeId: 1, ... } formatında
+          favoriteIds = favoritesData.map(fav => fav.recipeId);
+        } else if (typeof favoritesData[0] === 'number') {
+          // [1, 2, 3] formatında
+          favoriteIds = favoritesData;
+        }
+      }
+      
+      console.log("Favori ID'leri:", favoriteIds);
+      setFavorites(favoriteIds);
     } catch (error) {
       console.error("Favoriler yüklenemedi:", error);
+      console.error("Favoriler error response:", error.response?.data);
+      setFavorites([]);
     }
   };
 
@@ -200,6 +251,41 @@ function App() {
 
   // Giriş başarılı
   const handleAuthSuccess = async (userData) => {
+    console.log("handleAuthSuccess çağrıldı, yeni kullanıcı:", userData);
+    
+    // Önceki kullanıcı verilerini tamamen temizle
+    setUser(null);
+    setFavorites([]);
+    
+    // localStorage'ı temizle
+    localStorage.removeItem("user");
+    localStorage.removeItem("jwt");
+    
+    // Tüm cache'leri temizle
+    if ('caches' in window) {
+      try {
+        const cacheNames = await caches.keys();
+        for (const name of cacheNames) {
+          await caches.delete(name);
+        }
+      } catch (error) {
+        console.error('Cache temizleme hatası:', error);
+      }
+    }
+    
+    // Tarayıcı cache'ini temizle
+    if ('serviceWorker' in navigator) {
+      try {
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        for (const registration of registrations) {
+          await registration.unregister();
+        }
+      } catch (error) {
+        console.error('Service Worker temizleme hatası:', error);
+      }
+    }
+    
+    // Yeni kullanıcı verilerini ayarla
     setUser(userData);
     localStorage.setItem("user", JSON.stringify(userData));
     setShowLogin(false);
@@ -212,6 +298,17 @@ function App() {
     localStorage.removeItem("user");
     setUser(null);
     setFavorites([]);
+    
+    // Profil fotoğrafı cache'ini temizle
+    if ('caches' in window) {
+      caches.keys().then(names => {
+        names.forEach(name => {
+          if (name.includes('profile-photo') || name.includes('image')) {
+            caches.delete(name);
+          }
+        });
+      });
+    }
   };
 
   // Navbar'daki Profilim butonuna tıklayınca yönlendirme için
@@ -225,7 +322,7 @@ function App() {
         onLogoClick={() => navigate("/")}
         theme={theme}
         toggleTheme={toggleTheme}
-        key={user?.userId} // Kullanıcı değiştiğinde Navbar'ı yeniden render et
+        key={`${user?.userId}-${user?.username}-${Date.now()}`} // Kullanıcı değiştiğinde Navbar'ı yeniden render et
       />
     );
   }
@@ -282,53 +379,25 @@ function App() {
                   <div style={{ textAlign: 'center', padding: '50px' }}>Tarifler yükleniyor...</div>
                 ) : (
                   <div className="recipe-grid">
-                    {recipes
-                      .filter((r) => {
-                        if (!r) return false;
-                        const title = r.recipeName?.toLowerCase() || "";
-                        const category = r.category || "";
-                        const search = searchTerm.toLowerCase();
-                        const matchesSearch =
-                          title.includes(search) ||
-                          category.toLowerCase().includes(search);
-                        const matchesCategory =
-                          selectedCategory === "Tümü" ||
-                          (category && category.trim().toLowerCase() === selectedCategory.trim().toLowerCase());
-              
-                        // Malzeme bazlı filtreleme
-                        let matchesIngredients = true;
-                        if (userIngredients.length > 0) {
-                          let recipeIngredients = [];
-                          if (typeof r.recipeIngredients === "string") {
-                            recipeIngredients = r.recipeIngredients.split(/,|\n/).map(i => i.trim().toLowerCase()).filter(Boolean);
-                          } else if (Array.isArray(r.recipeIngredients)) {
-                            recipeIngredients = r.recipeIngredients.map(i => i.trim().toLowerCase());
-                          }
-                          matchesIngredients = userIngredients.some(userIng =>
-                            recipeIngredients.some(recipeIng => recipeIng.includes(userIng))
-                          );
-                        }
-                        return matchesSearch && matchesCategory && matchesIngredients;
-                      })
-                      .map((r) => {
-                        const { recipeId, recipeName, recipeImageUrl, recipeIngredients, recipeInstructions } = r;
-                        
-                        return (
-                          <RecipeCard
-                            key={recipeId}
-                            title={recipeName}
-                            imageUrl={recipeImageUrl}
-                            ingredients={recipeIngredients}
-                            recipeInstructions={recipeInstructions}
-                            userIngredients={userIngredients}
-                            onClick={() => setSelectedRecipe(r)}
-                            showIngredients={false}
-                            isFavorite={favorites.includes(recipeId)}
-                            onFavoriteClick={() => handleFavorite(recipeId)}
-                            user={user}
-                          />
-                        );
-                      })}
+                    {filteredRecipes.map((r) => {
+                      const { recipeId, recipeName, recipeImageUrl, recipeIngredients, recipeInstructions } = r;
+                      
+                      return (
+                        <RecipeCard
+                          key={recipeId}
+                          title={recipeName}
+                          imageUrl={recipeImageUrl}
+                          ingredients={recipeIngredients}
+                          recipeInstructions={recipeInstructions}
+                          userIngredients={userIngredients}
+                          onClick={() => setSelectedRecipe(r)}
+                          showIngredients={false}
+                          isFavorite={favorites.includes(recipeId)}
+                          onFavoriteClick={() => handleFavorite(recipeId)}
+                          user={user}
+                        />
+                      );
+                    })}
                   </div>
                 )}
               </div>

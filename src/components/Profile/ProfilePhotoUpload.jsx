@@ -70,6 +70,18 @@ const ProfilePhotoUpload = ({ user, onPhotoUpdate }) => {
         
         // Formu temizle
         resetForm();
+        
+        // Cache'i temizle
+        if ('caches' in window) {
+          caches.keys().then(names => {
+            names.forEach(name => {
+              if (name.includes('profile-photo') || name.includes('image')) {
+                caches.delete(name);
+              }
+            });
+          });
+        }
+        
         alert('Profil fotoğrafı başarıyla yüklendi!');
       } else {
         setError('Fotoğraf yüklenirken bir hata oluştu.');
