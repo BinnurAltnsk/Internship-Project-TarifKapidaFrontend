@@ -9,6 +9,7 @@ import { recipeService } from "./services/recipeService";
 import { userService } from "./services/userService";
 import { favoriteService } from "./services/favoriteService";
 import { getImageUrl } from "./services/api";
+import axios from "axios";
 
 function App() {
   const [recipes, setRecipes] = useState([]);
@@ -612,11 +613,20 @@ function RegisterForm({ onSuccess }) {
     
     setLoading(true);
     try {
-      const response = await userService.register({
+/*       const response = await userService.register({
         username,
         email,
         password,
         confirmPassword
+      }); */
+      const BASE_URL = localStorage.getItem("API_BASE_URL");
+      const tokenRequest = localStorage.getItem("jwt");
+      const response = await axios.post(`${BASE_URL}/api/User/CreateUser`,{
+        'Authorization': `Bearer ${tokenRequest}`,
+        username,
+        email,
+        password,
+        //confirmPassword
       });
       
       const { token, user } = response.data;
