@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = 'http://localhost:7175';
+const API_BASE_URL = 'http://localhost:5043';
 localStorage.setItem('API_BASE_URL', API_BASE_URL);
 
 // Axios instance oluştur
