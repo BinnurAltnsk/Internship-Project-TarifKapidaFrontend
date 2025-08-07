@@ -82,80 +82,97 @@ function App() {
     try {
       setLoading(true);
       console.log("Tarifler yükleniyor...");
-      const response = await recipeService.getRecipes();
-      const recipesData = response.data;
       
-      // Resim URL'lerini düzgün şekilde oluştur
-      const processedRecipes = recipesData.map(recipe => ({
-        ...recipe,
-        recipeImageUrl: getImageUrl(recipe.recipeImageUrl)
-      }));
-      
-      setRecipes(processedRecipes);
-      
-      // Kategorileri çıkar
-      const uniqueCategories = [...new Set(
-        recipesData
-          .map(recipe => recipe?.category)
-          .filter(category => category && category.trim() !== "")
-      )];
-      
-      setCategories(["Tümü", ...uniqueCategories]);
+      // API çağrısını try-catch ile sarmalayalım
+      try {
+        // Token ile API çağrısı yap
+        const token = localStorage.getItem("token");
+        const API_BASE_URL = localStorage.getItem("API_BASE_URL") || "http://localhost:5043";
+        
+        const response = await axios.get(`${API_BASE_URL}/api/Recipe/GetRecipes`, {
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          }
+        });
+        
+        const recipesData = response.data;
+        
+        // Resim URL'lerini düzgün şekilde oluştur
+        const processedRecipes = recipesData.map(recipe => ({
+          ...recipe,
+          recipeImageUrl: getImageUrl(recipe.recipeImageUrl)
+        }));
+        
+        setRecipes(processedRecipes);
+        
+        // Kategorileri çıkar
+        const uniqueCategories = [...new Set(
+          recipesData
+            .map(recipe => recipe?.category)
+            .filter(category => category && category.trim() !== "")
+        )];
+        
+        setCategories(["Tümü", ...uniqueCategories]);
+        console.log("API'den tarifler başarıyla yüklendi:", recipesData.length);
+      } catch (apiError) {
+        console.error("API'den tarifler yüklenemedi:", apiError);
+        console.error("API Error details:", apiError.response?.data);
+        
+        // API hatası durumunda demo tarifler göster
+        console.log("API hatası nedeniyle demo tarifler yükleniyor...");
+        const demoRecipes = [
+          {
+            recipeId: 1,
+            recipeName: "Mercimek Çorbası",
+            recipeImageUrl: "https://images.unsplash.com/photo-1547592166-23ac45744acd?w=400&h=200&fit=crop",
+            recipeIngredients: "Kırmızı mercimek, soğan, havuç, tereyağı, tuz, karabiber",
+            recipeInstructions: "1. Mercimekleri yıkayın\n2. Sebzeleri doğrayın\n3. Tencereye alın ve pişirin",
+            category: "Çorba"
+          },
+          {
+            recipeId: 2,
+            recipeName: "Tavuk Sote",
+            recipeImageUrl: "https://images.unsplash.com/photo-1567620905732-2d1ec7ab7445?w=400&h=200&fit=crop",
+            recipeIngredients: "Tavuk göğsü, soğan, biber, domates, zeytinyağı, baharatlar",
+            recipeInstructions: "1. Tavukları kuşbaşı doğrayın\n2. Sebzeleri hazırlayın\n3. Sote yapın",
+            category: "Ana Yemek"
+          },
+          {
+            recipeId: 3,
+            recipeName: "Pizza Margherita",
+            recipeImageUrl: "https://images.unsplash.com/photo-1574071318508-1cdbab80d002?w=400&h=200&fit=crop",
+            recipeIngredients: "Pizza hamuru, domates sosu, mozzarella peyniri, fesleğen, zeytinyağı",
+            recipeInstructions: "1. Hamuru açın\n2. Sosu sürün\n3. Peynir ve fesleğen ekleyin\n4. Fırında pişirin",
+            category: "Pizza"
+          },
+          {
+            recipeId: 4,
+            recipeName: "Çikolatalı Kek",
+            recipeImageUrl: "https://images.unsplash.com/photo-1578985545062-69928b1d9587?w=400&h=200&fit=crop",
+            recipeIngredients: "Un, şeker, kakao, yumurta, süt, tereyağı, vanilya",
+            recipeInstructions: "1. Malzemeleri karıştırın\n2. Kek kalıbına dökün\n3. Fırında pişirin",
+            category: "Tatlı"
+          },
+          {
+            recipeId: 5,
+            recipeName: "Salata",
+            recipeImageUrl: "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=400&h=200&fit=crop",
+            recipeIngredients: "Marul, domates, salatalık, zeytin, peynir, zeytinyağı, limon",
+            recipeInstructions: "1. Sebzeleri yıkayın\n2. Doğrayın\n3. Karıştırın ve sos ekleyin",
+            category: "Salata"
+          }
+        ];
+        
+        setRecipes(demoRecipes);
+        
+        // Demo kategorileri ekle
+        const demoCategories = ["Tümü", "Çorba", "Ana Yemek", "Pizza", "Tatlı", "Salata"];
+        setCategories(demoCategories);
+        console.log("Demo tarifler yüklendi");
+      }
     } catch (error) {
-      console.error("Tarifler yüklenemedi:", error);
-      console.error("Error details:", error.response?.data);
-      
-      // API hatası durumunda demo tarifler göster
-      console.log("API hatası nedeniyle demo tarifler yükleniyor...");
-      const demoRecipes = [
-        {
-          recipeId: 1,
-          recipeName: "Mercimek Çorbası",
-          recipeImageUrl: "https://via.placeholder.com/400x200/FF6B6B/FFFFFF?text=Mercimek+Çorbası",
-          recipeIngredients: "Kırmızı mercimek, soğan, havuç, tereyağı, tuz, karabiber",
-          recipeInstructions: "1. Mercimekleri yıkayın\n2. Sebzeleri doğrayın\n3. Tencereye alın ve pişirin",
-          category: "Çorba"
-        },
-        {
-          recipeId: 2,
-          recipeName: "Tavuk Sote",
-          recipeImageUrl: "https://via.placeholder.com/400x200/4ECDC4/FFFFFF?text=Tavuk+Sote",
-          recipeIngredients: "Tavuk göğsü, soğan, biber, domates, zeytinyağı, baharatlar",
-          recipeInstructions: "1. Tavukları kuşbaşı doğrayın\n2. Sebzeleri hazırlayın\n3. Sote yapın",
-          category: "Ana Yemek"
-        },
-        {
-          recipeId: 3,
-          recipeName: "Pizza Margherita",
-          recipeImageUrl: "https://via.placeholder.com/400x200/45B7D1/FFFFFF?text=Pizza+Margherita",
-          recipeIngredients: "Pizza hamuru, domates sosu, mozzarella peyniri, fesleğen, zeytinyağı",
-          recipeInstructions: "1. Hamuru açın\n2. Sosu sürün\n3. Peynir ve fesleğen ekleyin\n4. Fırında pişirin",
-          category: "Pizza"
-        },
-        {
-          recipeId: 4,
-          recipeName: "Çikolatalı Kek",
-          recipeImageUrl: "https://via.placeholder.com/400x200/96CEB4/FFFFFF?text=Çikolatalı+Kek",
-          recipeIngredients: "Un, şeker, kakao, yumurta, süt, tereyağı, vanilya",
-          recipeInstructions: "1. Malzemeleri karıştırın\n2. Kek kalıbına dökün\n3. Fırında pişirin",
-          category: "Tatlı"
-        },
-        {
-          recipeId: 5,
-          recipeName: "Salata",
-          recipeImageUrl: "https://via.placeholder.com/400x200/FFEAA7/FFFFFF?text=Salata",
-          recipeIngredients: "Marul, domates, salatalık, zeytin, peynir, zeytinyağı, limon",
-          recipeInstructions: "1. Sebzeleri yıkayın\n2. Doğrayın\n3. Karıştırın ve sos ekleyin",
-          category: "Salata"
-        }
-      ];
-      
-      setRecipes(demoRecipes);
-      
-      // Demo kategorileri ekle
-      const demoCategories = ["Tümü", "Çorba", "Ana Yemek", "Pizza", "Tatlı", "Salata"];
-      setCategories(demoCategories);
-      
+      console.error("Genel hata:", error);
     } finally {
       setLoading(false);
     }
@@ -353,6 +370,8 @@ function App() {
                 <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
                   <input
                     type="text"
+                    id="ingredient-input"
+                    name="ingredient"
                     value={inputIngredient}
                     onChange={e => setInputIngredient(e.target.value)}
                     placeholder="Malzeme ekle..."
@@ -360,6 +379,7 @@ function App() {
                     onKeyDown={e => { if (e.key === "Enter" && inputIngredient.trim()) { setUserIngredients([...userIngredients, inputIngredient.trim().toLowerCase()]); setInputIngredient(""); } }}
                   />
                   <button
+                    type="button"
                     onClick={() => { if (inputIngredient.trim()) { setUserIngredients([...userIngredients, inputIngredient.trim().toLowerCase()]); setInputIngredient(""); } }}
                     style={{ padding: "8px 16px", borderRadius: 6, background: "var(--accent-color)", color: "#fff", border: "none" }}
                   >Ekle</button>
@@ -480,8 +500,11 @@ function LoginForm({ onSuccess }) {
     
     try {
       console.log("Giriş denemesi:", { username: email, password: password });
-      const response = await userService.login({
-        username: email, // API'de username olarak gönderiliyor
+      
+      // Doğrudan axios kullan
+      const API_BASE_URL = localStorage.getItem("API_BASE_URL") || "http://localhost:5043";
+      const response = await axios.post(`${API_BASE_URL}/api/User/Login`, {
+        username: email,
         password: password
       });
       
@@ -493,7 +516,7 @@ function LoginForm({ onSuccess }) {
         
         try {
           // Önce email ile kullanıcı bilgilerini çekmeyi dene
-          const userResponse = await userService.getUserByEmail(email);
+          const userResponse = await axios.get(`${API_BASE_URL}/api/User/GetUserByEmail/${email}`);
           console.log("User Response:", userResponse);
           
           if (userResponse.data) {
@@ -508,6 +531,7 @@ function LoginForm({ onSuccess }) {
             // Geçici token oluştur
             const tempToken = "temp_token_" + Date.now();
             localStorage.setItem("jwt", tempToken);
+            localStorage.setItem("token", tempToken); // Token'ı da kaydet
             
             if (onSuccess) onSuccess(userData);
             return;
@@ -517,7 +541,7 @@ function LoginForm({ onSuccess }) {
           
           try {
             // Tüm kullanıcıları çek ve email ile filtrele
-            const allUsersResponse = await userService.getUsers();
+            const allUsersResponse = await axios.get(`${API_BASE_URL}/api/User/GetUsers`);
             console.log("All Users Response:", allUsersResponse);
             
             if (allUsersResponse.data) {
@@ -533,6 +557,7 @@ function LoginForm({ onSuccess }) {
                 // Geçici token oluştur
                 const tempToken = "temp_token_" + Date.now();
                 localStorage.setItem("jwt", tempToken);
+                localStorage.setItem("token", tempToken); // Token'ı da kaydet
                 
                 if (onSuccess) onSuccess(userData);
                 return;
@@ -558,6 +583,7 @@ function LoginForm({ onSuccess }) {
       }
       
       localStorage.setItem("jwt", token);
+      localStorage.setItem("token", token); // Token'ı da kaydet
       
       // Backend'den gelen user verisini kontrol et ve düzenle
       const userData = {
@@ -571,7 +597,22 @@ function LoginForm({ onSuccess }) {
     } catch (err) {
       console.error("Login Error:", err);
       console.error("Error Response:", err.response?.data);
-      setError(err?.response?.data?.message || "Giriş başarısız. Lütfen bilgilerinizi kontrol edin.");
+      console.error("Error Status:", err.response?.status);
+      console.error("Error Headers:", err.response?.headers);
+      
+      let errorMessage = "Giriş başarısız. Lütfen bilgilerinizi kontrol edin.";
+      
+      if (err.response?.status === 401) {
+        errorMessage = "Kullanıcı adı veya şifre hatalı.";
+      } else if (err.response?.status === 404) {
+        errorMessage = "Kullanıcı bulunamadı.";
+      } else if (err.response?.status === 500) {
+        errorMessage = "Sunucu hatası. Lütfen daha sonra tekrar deneyin.";
+      } else if (err.response?.data?.message) {
+        errorMessage = err.response.data.message;
+      }
+      
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -602,6 +643,15 @@ function RegisterForm({ onSuccess }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  // SHA256 hash fonksiyonu
+  const sha256 = async (message) => {
+    const msgBuffer = new TextEncoder().encode(message);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    return hashHex;
+  };
+
   async function handleSubmit(e) {
     e.preventDefault();
     setError("");
@@ -613,20 +663,10 @@ function RegisterForm({ onSuccess }) {
     
     setLoading(true);
     try {
-/*       const response = await userService.register({
+      const response = await userService.register({
         username,
         email,
-        password,
-        confirmPassword
-      }); */
-      const BASE_URL = localStorage.getItem("API_BASE_URL");
-      const tokenRequest = localStorage.getItem("jwt");
-      const response = await axios.post(`${BASE_URL}/api/User/CreateUser`,{
-        'Authorization': `Bearer ${tokenRequest}`,
-        username,
-        email,
-        password,
-        //confirmPassword
+        password: password // Şifreyi düz metin olarak gönder
       });
       
       const { token, user } = response.data;

@@ -8,14 +8,19 @@ const api = axios.create({
   baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET,PUT,POST,DELETE,PATCH,OPTIONS',
+    'Access-Control-Allow-Headers': 'Origin, X-Requested-With, Content-Type, Accept, Authorization'
   },
+  withCredentials: false,
+  mode: 'cors'
 });
 
 // Request interceptor - JWT token ekle
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('jwt');
-    if (token) {
+    if (token && token !== 'null' && token !== 'undefined') {
       config.headers.Authorization = `Bearer ${token}`;
     }
     return config;
@@ -29,10 +34,13 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
+    console.error('API Error:', error);
     if (error.response?.status === 401) {
+      console.log('401 hatası - token temizleniyor');
       localStorage.removeItem('jwt');
       localStorage.removeItem('user');
-      window.location.reload();
+      // Sayfa yenilemeyi kaldırdık
+      // window.location.reload();
     }
     return Promise.reject(error);
   }
