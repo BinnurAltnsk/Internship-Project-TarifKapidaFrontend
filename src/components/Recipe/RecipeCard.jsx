@@ -1,79 +1,95 @@
 import React from "react";
 import "./RecipeCard.css";
 
-const RecipeCard = ({ title, imageUrl, calories, ingredients, recipeInstructions, prepTime, isVegetarian, missingIngredients = [], userIngredients = [], onClick, showIngredients = false, isFavorite = false, onFavoriteClick, user }) => {
-  // Malzemeleri diziye çevir (virgül veya satır başına göre)
-  let ingredientList = [];
-  if (typeof ingredients === "string") {
-    ingredientList = ingredients.split(/,|\n/).map(i => i.trim()).filter(Boolean);
-  } else if (Array.isArray(ingredients)) {
-    ingredientList = ingredients;
-  }
+const RecipeCard = ({ recipe, isFavorite, onAddFavorite, onRemoveFavorite, onClick }) => {
+  const handleFavoriteClick = (e) => {
+    e.stopPropagation(); // Kart tıklamasını engelle
+    if (isFavorite) {
+      onRemoveFavorite();
+    } else {
+      onAddFavorite();
+    }
+  };
+
+  const handleCardClick = () => {
+    if (onClick) {
+      onClick(recipe);
+    }
+  };
+
+  // Tarif verilerini güvenli şekilde al
+  const recipeName = recipe?.recipeName || recipe?.title || "Tarif Adı";
+  const description = recipe?.description || recipe?.recipeDescription || "Bu tarif için açıklama bulunmuyor.";
+  const imageUrl = recipe?.imageUrl || recipe?.recipeImageUrl;
+  const category = recipe?.category || recipe?.recipeCategory;
+  const cookingTime = recipe?.cookingTime || recipe?.preparationTime || "30";
+  const difficulty = recipe?.difficulty || "Orta";
+  const rating = recipe?.rating || recipe?.averageRating || 4.5;
 
   return (
-    <div className="recipe-card" onClick={onClick} style={{ cursor: onClick ? "pointer" : undefined, position: "relative" }}>
-      <img 
-        src={imageUrl} 
-        alt={title} 
-        className="recipe-image"
-        onError={(e) => {
-          e.target.src = "https://via.placeholder.com/400x200/FF6B6B/FFFFFF?text=Tarif+Resmi";
-        }}
-      />
-      {/* Favori butonu */}
-      {user && (
-        <button
-          className={`favorite-btn ${isFavorite ? 'favorited' : ''}`}
-          onClick={e => { e.stopPropagation(); if (onFavoriteClick) onFavoriteClick(); }}
-          aria-label={isFavorite ? "Favorilerden çıkar" : "Favorilere ekle"}
+    <div className="recipe-card" onClick={handleCardClick}>
+      <div className="recipe-image-container">
+        {imageUrl ? (
+          <img
+            src={imageUrl}
+            alt={recipeName}
+            className="recipe-image"
+            onError={(e) => {
+              e.target.style.display = 'none';
+              e.target.nextSibling.style.display = 'flex';
+            }}
+          />
+        ) : null}
+        <div 
+          className="recipe-image-placeholder"
+          style={{ display: imageUrl ? 'none' : 'flex' }}
         >
-          {isFavorite ? "❤️" : "🤍"}
-        </button>
-      )}
-      <div className="recipe-content">
-        <h2 className="recipe-title">{title}</h2>
-        {showIngredients ? (
-          <>
-            <div className="recipe-meta">
-              <span>🔥 {calories} kalori</span>
-              <span>⏱️ {prepTime} dk</span>
-              {isVegetarian && <span>🌱 Vejetaryen</span>}
-            </div>
-            <div className="recipe-ingredients">
-              <strong>Malzemeler:</strong>
-              {ingredientList.map((item, idx) => {
-                const itemLower = item.toLowerCase();
-                const isMissing = missingIngredients.includes(itemLower);
-                const isUserHas = userIngredients.includes(itemLower);
-                return (
-                  <div key={idx} className="ingredient-item">
-                    <div className="ingredient-name">
-                      {isUserHas && <span className="ingredient-check">✔</span>}
-                      {item}
-                    </div>
-                    {isMissing && (
-                      <a
-                        href={`https://www.amazon.com.tr/s?k=${encodeURIComponent(item)}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="amazon-btn"
-                        onClick={e => e.stopPropagation()}
-                      >
-                        Amazon'dan al
-                      </a>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </>
-        ) : (
-          <div className="recipe-meta">
-            <span>🔥 {calories} kalori</span>
-            <span>⏱️ {prepTime} dk</span>
-            {isVegetarian && <span>🌱 Vejetaryen</span>}
+          🍽️
+        </div>
+        
+        {category && (
+          <div className="recipe-badge">
+            {category}
           </div>
         )}
+      </div>
+
+      <div className="recipe-info">
+        <div className="recipe-header">
+          <h3 className="recipe-title">{recipeName}</h3>
+          <p className="recipe-description">{description}</p>
+        </div>
+
+        <div className="recipe-meta">
+          <div className="recipe-meta-item">
+            <span className="recipe-meta-icon">⏱️</span>
+            <span>{cookingTime} dk</span>
+          </div>
+          <div className="recipe-meta-item">
+            <span className="recipe-meta-icon">🔥</span>
+            <span>{difficulty}</span>
+          </div>
+        </div>
+
+        <div className="recipe-actions">
+          <div className="recipe-rating">
+            <div className="rating-stars">
+              {'⭐'.repeat(Math.floor(rating))}
+              {rating % 1 > 0 && '⭐'}
+            </div>
+            <span className="rating-text">{rating.toFixed(1)}</span>
+          </div>
+
+          <button 
+            className={`favorite-btn ${isFavorite ? 'favorited' : ''}`}
+            onClick={handleFavoriteClick}
+          >
+            <span className="favorite-icon">
+              {isFavorite ? '💔' : '❤️'}
+            </span>
+            {isFavorite ? 'Favoriden Çıkar' : 'Favorilere Ekle'}
+          </button>
+        </div>
       </div>
     </div>
   );

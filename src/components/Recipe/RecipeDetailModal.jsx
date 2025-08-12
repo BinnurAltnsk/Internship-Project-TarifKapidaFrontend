@@ -1,156 +1,126 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
-import RecipeReviewForm from "./RecipeReviewForm";
-import { reviewService } from "../../services/reviewService";
-import PaginatedRecipeReviewList from "../Review/PaginatedRecipeReviewList";
 
-
-export default function RecipeDetailModal({ recipe, user, onClose }) {
-  const [averageRating, setAverageRating] = useState(null);
-  const [reviewCount, setReviewCount] = useState(0);
+const RecipeDetailModal = ({ recipe, user, onClose }) => {
+  const [reviews, setReviews] = useState([]);
+  const [averageRating, setAverageRating] = useState(0);
+  const [comment, setComment] = useState("");
+  const [rating, setRating] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
 
+  const API_BASE_URL = localStorage.getItem("API_BASE_URL");
+  const token = localStorage.getItem("token");
+
+  // Yorumları getir
   useEffect(() => {
-    const fetchAverageRating = async () => {
+    const fetchReviews = async () => {
       try {
-        setLoading(true);
-        setError("");
-        const API_BASE_URL = localStorage.getItem('API_BASE_URL');
-        const response = await axios.get(`${API_BASE_URL}/api/Review/GetAverageRating/${recipe.recipeId}`);
-        setAverageRating(response.data.averageRating?.toFixed(1) || null);
-        setReviewCount(response.data.reviewCount || 0);
+        const res = await axios.get(`${API_BASE_URL}/api/Review/PagedReviewsByRecipe?recipeId=${recipe.recipeId}`);
+        setReviews(res.data || []);
       } catch (err) {
-        console.error("Ortalama değerlendirme yüklenemedi:", err);
-        setError("Ortalama değerlendirme yüklenemedi.");
-      } finally {
-        setLoading(false);
+        console.error("Yorumlar getirilemedi:", err);
       }
     };
-    if (recipe.recipeId) {
-      fetchAverageRating();
-    }
-  }, [recipe.recipeId]);
-  
-  return (
-    <div
-      className="modal"
-      onClick={onClose}
-      style={{
-        position: "fixed",
-        top: 0,
-        left: 0,
-        width: "100vw",
-        height: "100vh",
-        background: "rgba(0,0,0,0.4)",
-        zIndex: 1000,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-      }}
-    >
-      <div
-        style={{
-          background: "#fff",
-          color: "#333",
-          borderRadius: 16,
-          padding: 32,
-          maxWidth: 600,
-          width: "100%",
-          position: "relative",
-          maxHeight: "90vh",
-          overflowY: "auto",
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <button
-          onClick={onClose}
-          style={{
-            position: "absolute",
-            top: 16,
-            right: 16,
-            background: "#FF6B6B",
-            color: "#fff",
-            border: "none",
-            borderRadius: 8,
-            padding: "4px 12px",
-            fontSize: 18,
-            cursor: "pointer",
-          }}
-        >
-          Kapat
-        </button>
 
-        {/* Görsel */}
-        {recipe.recipeImageUrl && (
-          <img
-            src={recipe.recipeImageUrl}
-            alt={recipe.recipeName}
-            style={{
-              width: "100%",
-              height: 300,
-              objectFit: "cover",
-              borderRadius: 12,
-              marginBottom: 20,
-            }}
-            onError={(e) => {
-              e.target.src = "https://via.placeholder.com/600x300/FF6B6B/FFFFFF?text=Tarif+Resmi";
-            }}
-          />
+    const fetchAverageRating = async () => {
+      try {
+        const res = await axios.get(`${API_BASE_URL}/api/Review/GetAverageRating/${recipe.recipeId}`);
+        setAverageRating(res.data || 0);
+      } catch (err) {
+        console.error("Ortalama puan getirilemedi:", err);
+      }
+    };
+
+    fetchReviews();
+    fetchAverageRating();
+    setLoading(false);
+  }, [recipe.recipeId]);
+
+  // Yeni yorum gönder
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!user?.userId || !comment || rating === 0) return;
+
+    try {
+      await axios.post(`${API_BASE_URL}/api/Review/CreateReview`, {
+        recipeId: recipe.recipeId,
+        userId: user.userId,
+        reviewText: comment,
+        rating,
+      });
+      setComment("");
+      setRating(0);
+      // Yeniden yorumları ve ortalamayı getir
+      const res = await axios.get(`${API_BASE_URL}/api/Review/PagedReviewsByRecipe?recipeId=${recipe.recipeId}`);
+      setReviews(res.data || []);
+      const ratingRes = await axios.get(`${API_BASE_URL}/api/Review/GetAverageRating/${recipe.recipeId}`);
+      setAverageRating(ratingRes.data || 0);
+    } catch (err) {
+      console.error("Yorum gönderilemedi:", err);
+    }
+  };
+
+  if (loading) return <p>Yükleniyor...</p>;
+
+  return (
+    <div className="modal">
+      <div className="modal-content">
+        <button onClick={onClose} className="close-button">X</button>
+        <h2>{recipe.recipeName}</h2>
+        <img src={recipe.recipeImageUrl} alt={recipe.recipeName} style={{ maxWidth: "100%", height: "auto" }} />
+        <p><strong>Açıklama:</strong> {recipe.recipeDescription}</p>
+        <p><strong>Malzemeler:</strong> {recipe.recipeIngredients}</p>
+        <p><strong>Yapılışı:</strong> {recipe.recipeInstructions}</p>
+        <p><strong>Kalori:</strong> {recipe.recipeCalories} kcal</p>
+        <p><strong>Hazırlama Süresi:</strong> {recipe.recipePrepTime} dk</p>
+        <p><strong>Vejetaryen mi?</strong> {recipe.recipeIsVegetarian ? "Evet" : "Hayır"}</p>
+        <p><strong>⭐ Ortalama Puan:</strong> {averageRating.toFixed(1)} / 5</p>
+
+        <hr />
+
+        <h3>💬 Yorumlar</h3>
+        {reviews.length === 0 ? (
+          <p>Henüz yorum yapılmamış.</p>
+        ) : (
+          <ul>
+            {reviews.map((review) => (
+              <li key={review.reviewId}>
+                <strong>{review.username || "Anonim"}:</strong> {review.reviewText} ⭐{review.rating}
+              </li>
+            ))}
+          </ul>
         )}
 
-        {/* Başlık */}
-        <h2>{recipe.recipeName}</h2>
-
-        {/* Malzemeler */}
-        <div style={{ marginBottom: 16 }}>
-          <h4>Malzemeler:</h4>
-          <p>{recipe.recipeIngredients}</p>
-        </div>
-
-        {/* Hazırlanış */}
-        <div style={{ marginBottom: 16 }}>
-          <h4>Hazırlanışı:</h4>
-          <p>{recipe.recipeInstructions}</p>
-        </div>
-
-        {/* Ortalama Puan */}
-        <div style={{ marginBottom: 24 }}>
-          <h4>Değerlendirmeler:</h4>
-          {loading ? (
-            <p>Yükleniyor...</p>
-          ) : error ? (
-            <p style={{ color: "red" }}>{error}</p>
-          ) : averageRating ? (
-            <p>
-              ⭐ {averageRating} / 5
-              <span style={{ marginLeft: 8, color: "#777" }}>({reviewCount} değerlendirme)</span>
-            </p>
-          ) : (
-            <p>Henüz değerlendirme yok.</p>
-          )}
-        </div>
-
-        {/* Yorum Listesi */}
-        <PaginatedRecipeReviewList recipeId={recipe.recipeId} />
-
-        {/* Yorum Formu */}
-        {user && (
-          <RecipeReviewForm
-            recipeId={recipe.recipeId}
-            user={user}
-            onReviewSubmit={() => {
-              // Değerlendirme yapıldığında ortalama tekrar yüklensin
-              axios
-                .get(`http://localhost:7175/api/Review/GetAverageRating/${recipe.recipeId}`)
-                .then((res) => {
-                  setAverageRating(res.data.averageRating?.toFixed(1));
-                  setReviewCount(res.data.reviewCount);
-                });
-            }}
-          />
+        {user?.userId && (
+          <>
+            <h3>Yorum Yap</h3>
+            <form onSubmit={handleSubmit}>
+              <textarea
+                value={comment}
+                onChange={(e) => setComment(e.target.value)}
+                placeholder="Yorumunuzu yazın"
+                required
+              />
+              <br />
+              <label>
+                Puan:
+                <input
+                  type="number"
+                  value={rating}
+                  onChange={(e) => setRating(Number(e.target.value))}
+                  min="1"
+                  max="5"
+                  required
+                />
+              </label>
+              <br />
+              <button type="submit">Gönder</button>
+            </form>
+          </>
         )}
       </div>
     </div>
   );
-}
+};
+
+export default RecipeDetailModal;

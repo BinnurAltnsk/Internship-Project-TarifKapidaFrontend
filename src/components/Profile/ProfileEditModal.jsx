@@ -1,313 +1,288 @@
-import React, { useState, useEffect } from 'react';
-import ProfilePhotoUpload from './ProfilePhotoUpload';
-import './ProfileEditModal.css';
+import React, { useState, useEffect } from "react";
+import axios from "axios";
+import "./ProfileEditModal.css";
 
-const ProfileEditModal = ({ user, userProfile, isOpen, onClose, onPhotoUpdate }) => {
-  const [activeSection, setActiveSection] = useState('photo');
-  const [isDarkMode, setIsDarkMode] = useState(false);
+const ProfileEditModal = ({ user, userProfile, onClose }) => {
+  const [username, setUsername] = useState(user?.username || "");
+  const [email, setEmail] = useState(user?.email || "");
+  const [bio, setBio] = useState(userProfile?.bio || "");
+  const [profileImageBase64, setProfileImageBase64] = useState("");
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [message, setMessage] = useState("");
+  const [messageType, setMessageType] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [errors, setErrors] = useState({});
 
-  // Dark mode detection
+  const API_BASE_URL = localStorage.getItem("API_BASE_URL");
+  const token = localStorage.getItem("token");
+
+  // Mevcut profil fotoğrafını göster
   useEffect(() => {
-    const checkDarkMode = () => {
-      const isDark = document.documentElement.getAttribute('data-theme') === 'dark' ||
-                    window.matchMedia('(prefers-color-scheme: dark)').matches;
-      setIsDarkMode(isDark);
+    if (userProfile?.profileImageBase64) {
+      setProfileImageBase64(userProfile.profileImageBase64);
+    }
+  }, [userProfile]);
+
+  const validateForm = () => {
+    const newErrors = {};
+
+    if (!username.trim()) {
+      newErrors.username = "Kullanıcı adı gereklidir";
+    } else if (username.length < 3) {
+      newErrors.username = "Kullanıcı adı en az 3 karakter olmalıdır";
+    }
+
+    if (!email.trim()) {
+      newErrors.email = "E-posta gereklidir";
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      newErrors.email = "Geçerli bir e-posta adresi giriniz";
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // Dosya boyutu kontrolü (5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      setMessage("Dosya boyutu 5MB'dan küçük olmalıdır");
+      setMessageType("error");
+      return;
+    }
+
+    // Dosya tipi kontrolü
+    if (!file.type.startsWith('image/')) {
+      setMessage("Sadece resim dosyaları kabul edilir");
+      setMessageType("error");
+      return;
+    }
+
+    setSelectedFile(file);
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      // Backend data:image/...;base64, formatını bekliyor
+      setProfileImageBase64(reader.result);
     };
+    reader.readAsDataURL(file);
+  };
 
-    checkDarkMode();
+  const handleSubmit = async (e) => {
+    e.preventDefault();
     
-    // Listen for theme changes
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-    mediaQuery.addListener(checkDarkMode);
-    
-    // Listen for data-theme attribute changes
-    const observer = new MutationObserver(checkDarkMode);
-    observer.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ['data-theme']
-    });
+    if (!validateForm()) return;
 
-    return () => {
-      mediaQuery.removeListener(checkDarkMode);
-      observer.disconnect();
-    };
-  }, []);
+    setLoading(true);
+    setMessage("");
 
-  if (!isOpen) return null;
+    try {
+      // Önce profil bilgilerini güncelle
+      const updateData = {
+        userId: user.userId,
+        username: username.trim(),
+        email: email.trim(),
+        bio: bio.trim(),
+        profileImageBase64: null // Fotoğrafı ayrı yükle
+      };
 
-  const menuItems = [
-    { 
-      key: 'photo', 
-      label: 'Profil Fotoğrafı', 
-      icon: isDarkMode ? '📸' : '📷',
-      description: 'Profil fotoğrafınızı güncelleyin'
-    },
-    { 
-      key: 'password', 
-      label: 'Şifre Değiştir', 
-      icon: '🔐',
-      description: 'Hesap güvenliğinizi artırın'
-    },
-    { 
-      key: 'email', 
-      label: 'E-posta Değiştir', 
-      icon: '✉️',
-      description: 'E-posta adresinizi güncelleyin'
-    },
-    { 
-      key: 'username', 
-      label: 'Kullanıcı Adı Değiştir', 
-      icon: '👤',
-      description: 'Kullanıcı adınızı değiştirin'
-    },
-    { 
-      key: 'account', 
-      label: 'Hesap Ayarları', 
-      icon: '⚙️',
-      description: 'Hesap tercihlerinizi yönetin'
-    },
-    { 
-      key: 'social', 
-      label: 'Sosyal Hesaplar', 
-      icon: '🔗',
-      description: 'Sosyal medya hesaplarınızı bağlayın'
-    },
-    { 
-      key: 'contact', 
-      label: 'İletişim Bilgileri', 
-      icon: '📞',
-      description: 'İletişim bilgilerinizi güncelleyin'
-    },
-    { 
-      key: 'notifications', 
-      label: 'Bildirim Ayarları', 
-      icon: '🔔',
-      description: 'Bildirim tercihlerinizi ayarlayın'
-    },
-  ];
+      const res = await axios.post(
+        `${API_BASE_URL}/api/UserProfile/UpdateUserProfile`,
+        updateData,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
 
-  const renderContent = () => {
-    switch (activeSection) {
-      case 'photo':
-        return (
-          <ProfilePhotoUpload 
-            user={user}
-            userProfile={userProfile}
-            onPhotoUpdate={onPhotoUpdate}
-          />
+      // Eğer yeni fotoğraf seçildiyse, ayrıca fotoğraf yükle
+      if (profileImageBase64 && profileImageBase64 !== userProfile?.profileImageBase64) {
+        console.log("Yeni fotoğraf yükleniyor...");
+        console.log("Seçilen fotoğraf:", profileImageBase64.substring(0, 100) + "...");
+        
+        const photoData = {
+          userId: user.userId,
+          profileImageBase64: profileImageBase64
+        };
+
+        const photoRes = await axios.post(
+          `${API_BASE_URL}/api/UserProfile/UploadUserProfilePhoto`,
+          photoData,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
         );
-      case 'password':
-        return (
-          <div className="section-content">
-            <h3>🔐 Şifre Değiştir</h3>
-            <div className="feature-coming-soon">
-              <div className="coming-soon-icon">🚀</div>
-              <h4>Yakında Geliyor!</h4>
-              <p>Bu özellik çok yakında kullanıma açılacak. Güvenli şifre değiştirme işlemi için hazırlıklarımız devam ediyor.</p>
-              <div className="feature-benefits">
-                <div className="benefit-item">
-                  <span className="benefit-icon">🔒</span>
-                  <span>Güvenli şifre politikası</span>
-                </div>
-                <div className="benefit-item">
-                  <span className="benefit-icon">📧</span>
-                  <span>E-posta doğrulama</span>
-                </div>
-                <div className="benefit-item">
-                  <span className="benefit-icon">⚡</span>
-                  <span>Anında güncelleme</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        );
-      case 'email':
-        return (
-          <div className="section-content">
-            <h3>✉️ E-posta Değiştir</h3>
-            <div className="feature-coming-soon">
-              <div className="coming-soon-icon">📬</div>
-              <h4>Yakında Geliyor!</h4>
-              <p>E-posta adresinizi güvenli bir şekilde değiştirmek için gerekli altyapı hazırlanıyor.</p>
-              <div className="feature-benefits">
-                <div className="benefit-item">
-                  <span className="benefit-icon">✅</span>
-                  <span>E-posta doğrulama</span>
-                </div>
-                <div className="benefit-item">
-                  <span className="benefit-icon">🔐</span>
-                  <span>Güvenli değişim</span>
-                </div>
-                <div className="benefit-item">
-                  <span className="benefit-icon">📱</span>
-                  <span>Anlık bildirim</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        );
-      case 'username':
-        return (
-          <div className="section-content">
-            <h3>👤 Kullanıcı Adı Değiştir</h3>
-            <div className="feature-coming-soon">
-              <div className="coming-soon-icon">🎯</div>
-              <h4>Yakında Geliyor!</h4>
-              <p>Kullanıcı adınızı istediğiniz zaman değiştirebileceksiniz. Benzersiz kullanıcı adları için sistem hazırlanıyor.</p>
-              <div className="feature-benefits">
-                <div className="benefit-item">
-                  <span className="benefit-icon">🎨</span>
-                  <span>Özelleştirilebilir</span>
-                </div>
-                <div className="benefit-item">
-                  <span className="benefit-icon">🔍</span>
-                  <span>Müsaitlik kontrolü</span>
-                </div>
-                <div className="benefit-item">
-                  <span className="benefit-icon">⚡</span>
-                  <span>Anında güncelleme</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        );
-      case 'account':
-        return (
-          <div className="section-content">
-            <h3>⚙️ Hesap Ayarları</h3>
-            <div className="feature-coming-soon">
-              <div className="coming-soon-icon">🎛️</div>
-              <h4>Yakında Geliyor!</h4>
-              <p>Hesap ayarlarınızı detaylı bir şekilde yönetebileceğiniz kapsamlı bir panel hazırlanıyor.</p>
-              <div className="feature-benefits">
-                <div className="benefit-item">
-                  <span className="benefit-icon">🌍</span>
-                  <span>Dil ayarları</span>
-                </div>
-                <div className="benefit-item">
-                  <span className="benefit-icon">🎨</span>
-                  <span>Tema seçenekleri</span>
-                </div>
-                <div className="benefit-item">
-                  <span className="benefit-icon">🔒</span>
-                  <span>Güvenlik ayarları</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        );
-      case 'social':
-        return (
-          <div className="section-content">
-            <h3>🔗 Sosyal Hesaplar</h3>
-            <div className="feature-coming-soon">
-              <div className="coming-soon-icon">🌐</div>
-              <h4>Yakında Geliyor!</h4>
-              <p>Sosyal medya hesaplarınızı TarifKapıda hesabınızla bağlayarak daha hızlı giriş yapabileceksiniz.</p>
-              <div className="feature-benefits">
-                <div className="benefit-item">
-                  <span className="benefit-icon">📱</span>
-                  <span>Hızlı giriş</span>
-                </div>
-                <div className="benefit-item">
-                  <span className="benefit-icon">🔄</span>
-                  <span>Kolay senkronizasyon</span>
-                </div>
-                <div className="benefit-item">
-                  <span className="benefit-icon">🔐</span>
-                  <span>Güvenli bağlantı</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        );
-      case 'contact':
-        return (
-          <div className="section-content">
-            <h3>📞 İletişim Bilgileri</h3>
-            <div className="feature-coming-soon">
-              <div className="coming-soon-icon">📋</div>
-              <h4>Yakında Geliyor!</h4>
-              <p>İletişim bilgilerinizi güncelleyerek arkadaşlarınızın sizi daha kolay bulmasını sağlayın.</p>
-              <div className="feature-benefits">
-                <div className="benefit-item">
-                  <span className="benefit-icon">📧</span>
-                  <span>E-posta yönetimi</span>
-                </div>
-                <div className="benefit-item">
-                  <span className="benefit-icon">📱</span>
-                  <span>Telefon numarası</span>
-                </div>
-                <div className="benefit-item">
-                  <span className="benefit-icon">📍</span>
-                  <span>Konum bilgisi</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        );
-      case 'notifications':
-        return (
-          <div className="section-content">
-            <h3>🔔 Bildirim Ayarları</h3>
-            <div className="notification-subsections">
-              <div className="subsection">
-                <h4>📱 Masaüstü Bildirim Ayarları</h4>
-                <div className="feature-coming-soon">
-                  <div className="coming-soon-icon">💻</div>
-                  <h5>Yakında Geliyor!</h5>
-                  <p>Masaüstü bildirimlerinizi özelleştirerek önemli güncellemeleri kaçırmayın.</p>
-                </div>
-              </div>
-              <div className="subsection">
-                <h4>📧 E-posta Bildirim Ayarları</h4>
-                <div className="feature-coming-soon">
-                  <div className="coming-soon-icon">📬</div>
-                  <h5>Yakında Geliyor!</h5>
-                  <p>E-posta bildirimlerinizi yöneterek istediğiniz içerikleri alın.</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        );
-      default:
-        return null;
+        
+        console.log("Fotoğraf yükleme sonucu:", photoRes.data);
+      }
+
+      setMessage("Profil başarıyla güncellendi! 🎉");
+      setMessageType("success");
+      
+      // LocalStorage'daki user bilgisini güncelle
+      const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
+      const updatedUser = { ...currentUser, username: username.trim(), email: email.trim() };
+      localStorage.setItem("user", JSON.stringify(updatedUser));
+
+      // Profil bilgilerini yenile
+      setTimeout(() => {
+        window.location.reload(); // Sayfayı yenile
+      }, 2000);
+    } catch (err) {
+      console.error("Profil güncelleme hatası:", err);
+      
+      if (err.response?.status === 409) {
+        setMessage("Bu kullanıcı adı veya e-posta zaten kullanılıyor");
+      } else if (err.response?.status === 400) {
+        setMessage("Geçersiz veri formatı");
+      } else {
+        setMessage("Profil güncellenirken bir hata oluştu. Lütfen tekrar deneyin.");
+      }
+      setMessageType("error");
+    } finally {
+      setLoading(false);
     }
   };
 
+  const handleClose = () => {
+    if (loading) return; // Yükleme sırasında kapatmayı engelle
+    onClose();
+  };
+
   return (
-    <div className="profile-edit-modal-overlay" onClick={onClose}>
-      <div className="profile-edit-modal" onClick={(e) => e.stopPropagation()}>
+    <div className="modal-overlay" onClick={handleClose}>
+      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+        {/* Kapatma Butonu */}
+        <button className="close-btn" onClick={handleClose} disabled={loading}>
+          ✕
+        </button>
+
+        {/* Modal Başlığı */}
         <div className="modal-header">
-          <h2>PROFİLİNİ DÜZENLE</h2>
-          <button className="close-btn" onClick={onClose} aria-label="Kapat">×</button>
+          <h3 className="modal-title">Profil Bilgilerini Güncelle</h3>
+          <p className="modal-subtitle">Kişisel bilgilerinizi düzenleyin</p>
         </div>
-        
-        <div className="modal-content">
-          <div className="menu-sidebar">
-            {menuItems.map((item) => (
-              <button
-                key={item.key}
-                className={`menu-item ${activeSection === item.key ? 'active' : ''}`}
-                onClick={() => setActiveSection(item.key)}
-                title={item.description}
+
+        {/* Form */}
+        <form onSubmit={handleSubmit}>
+          {/* Kullanıcı Adı */}
+          <div className="form-group">
+            <label className="form-label">👤 Kullanıcı Adı</label>
+            <input
+              type="text"
+              className={`form-input ${errors.username ? 'error' : ''}`}
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="Kullanıcı adınızı girin"
+              disabled={loading}
+            />
+            {errors.username && <span className="error-text">{errors.username}</span>}
+          </div>
+
+          {/* E-posta */}
+          <div className="form-group">
+            <label className="form-label">📧 E-posta</label>
+            <input
+              type="email"
+              className={`form-input ${errors.email ? 'error' : ''}`}
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="E-posta adresinizi girin"
+              disabled={loading}
+            />
+            {errors.email && <span className="error-text">{errors.email}</span>}
+          </div>
+
+          {/* Hakkımda */}
+          <div className="form-group">
+            <label className="form-label">📝 Hakkımda</label>
+            <textarea
+              className="form-input"
+              value={bio}
+              onChange={(e) => setBio(e.target.value)}
+              placeholder="Kendiniz hakkında kısa bir açıklama yazın (opsiyonel)"
+              rows="3"
+              disabled={loading}
+            />
+          </div>
+
+          {/* Profil Fotoğrafı */}
+          <div className="form-group">
+            <label className="form-label">📸 Profil Fotoğrafı</label>
+            <div className="file-input-container">
+              <input
+                type="file"
+                id="profile-image"
+                className="file-input"
+                accept="image/*"
+                onChange={handleFileChange}
+                disabled={loading}
+              />
+              <label 
+                htmlFor="profile-image" 
+                className={`file-input-label ${selectedFile ? 'has-file' : ''}`}
               >
-                <span className="menu-icon">{item.icon}</span>
-                <div className="menu-item-content">
-                  <span className="menu-label">{item.label}</span>
-                  <span className="menu-description">{item.description}</span>
-                </div>
-              </button>
-            ))}
+                {selectedFile ? '📁 Dosya Seçildi' : '📁 Fotoğraf Seç'}
+              </label>
+            </div>
+            
+            {selectedFile && (
+              <div className="file-name">
+                Seçilen dosya: {selectedFile.name}
+              </div>
+            )}
+
+            {/* Önizleme */}
+            {profileImageBase64 && (
+              <img
+                src={profileImageBase64.startsWith('data:') 
+                  ? profileImageBase64 
+                  : `${API_BASE_URL}${profileImageBase64}`
+                }
+                alt="Profil önizleme"
+                className="preview-image"
+                onError={(e) => {
+                  console.log("Önizleme fotoğrafı yüklenemedi");
+                  e.target.style.display = 'none';
+                }}
+              />
+            )}
           </div>
-          
-          <div className="content-area">
-            {renderContent()}
+
+          {/* Butonlar */}
+          <div className="modal-actions">
+            <button 
+              type="button" 
+              className="btn btn-outline" 
+              onClick={handleClose}
+              disabled={loading}
+            >
+              ❌ İptal
+            </button>
+            <button 
+              type="submit" 
+              className="btn btn-primary"
+              disabled={loading}
+            >
+              {loading ? '⏳ Kaydediliyor...' : '💾 Kaydet'}
+            </button>
           </div>
-        </div>
+        </form>
+
+        {/* Durum Mesajı */}
+        {message && (
+          <div className={`status-message ${messageType}`}>
+            {message}
+          </div>
+        )}
       </div>
     </div>
   );
 };
 
-export default ProfileEditModal; 
+export default ProfileEditModal;

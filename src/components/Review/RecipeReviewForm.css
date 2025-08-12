@@ -1,0 +1,29 @@
+.review-form {
+    margin-top: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  
+  .review-form input,
+  .review-form textarea {
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    font-size: 14px;
+  }
+  
+  .review-form button {
+    background-color: #007bff;
+    color: white;
+    border: none;
+    padding: 10px;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  
+  .review-form .error {
+    color: red;
+    font-size: 14px;
+  }
+  
